@@ -224,19 +224,19 @@
 
     <div class="pad-grid">
       <!-- 9 SAMPLES PRINCIPALES -->
-      <div class="pad" data-sound="sample1"><span>SMP 01</span><div class="indicator">1/16 CUT</div></div>
-      <div class="pad" data-sound="sample2"><span>SMP 02</span><div class="indicator">1/8 CUT</div></div>
-      <div class="pad" data-sound="sample3"><span>SMP 03</span><div class="indicator">1/8 CUT</div></div>
-      <div class="pad" data-sound="sample4"><span>SMP 04</span><div class="indicator">1/16 CUT</div></div>
-      <div class="pad" data-sound="sample5"><span>SMP 05</span><div class="indicator">1/8 CUT</div></div>
-      <div class="pad" data-sound="sample6"><span>SMP 06</span><div class="indicator">1/8 CUT</div></div>
-      <div class="pad" data-sound="sample7"><span>SMP 07</span><div class="indicator">1/16 CUT</div></div>
-      <div class="pad" data-sound="sample8"><span>SMP 08</span><div class="indicator">1/16 CUT</div></div>
-      <div class="pad" data-sound="sample9"><span>SMP 09</span><div class="indicator">1/16 CUT</div></div>
+      <div class="pad" data-sound="sample1"><span>SMP 01</span><div class="indicator">1/16 HOLD</div></div>
+      <div class="pad" data-sound="sample2"><span>SMP 02</span><div class="indicator">1/8 HOLD</div></div>
+      <div class="pad" data-sound="sample3"><span>SMP 03</span><div class="indicator">1/8 HOLD</div></div>
+      <div class="pad" data-sound="sample4"><span>SMP 04</span><div class="indicator">1/16 HOLD</div></div>
+      <div class="pad" data-sound="sample5"><span>SMP 05</span><div class="indicator">1/8 HOLD</div></div>
+      <div class="pad" data-sound="sample6"><span>SMP 06</span><div class="indicator">1/8 HOLD</div></div>
+      <div class="pad" data-sound="sample7"><span>SMP 07</span><div class="indicator">1/16 HOLD</div></div>
+      <div class="pad" data-sound="sample8"><span>SMP 08</span><div class="indicator">1/16 HOLD</div></div>
+      <div class="pad" data-sound="sample9"><span>SMP 09</span><div class="indicator">1/16 HOLD</div></div>
 
       <!-- 3 PADS GROSS BEAT / FX -->
       <div class="pad glitch-pad" data-stutter="rebreak_a"><span>RE-BREAK A</span><div class="indicator">1/32 STUTTER</div></div>
-      <div class="pad glitch-pad" data-stutter="rebreak_b"><span>RE-BREAK B</span><div class="indicator">PITCH DIVE FX</div></div>
+      <div class="pad glitch-pad" data-stutter="rebreak_b"><span>RE-BREAK B</span><div class="indicator">1/32, 1/16, 1/8</div></div>
       <div class="pad glitch-pad" data-stutter="scratch"><span>SLOW TAPE STOP</span><div class="indicator">VINYL BRAKE</div></div>
     </div>
   </div>
@@ -301,7 +301,6 @@
       return { start, end };
     }
 
-    // Generador de respuesta de impulso sintética para Reverb
     function createReverbImpulse(ctx, duration = 1.2, decay = 2.5) {
       const sampleRate = ctx.sampleRate;
       const length = sampleRate * duration;
@@ -317,7 +316,6 @@
       return impulse;
     }
 
-    // Curva de Soft Clipping para dar pegada al Master
     function makeSoftClipCurve(amount = 2.2) {
       const n_samples = 44100;
       const curve = new Float32Array(n_samples);
@@ -354,7 +352,6 @@
     async function initSystem() {
       audioCtx = new AudioContext();
 
-      // FILTRO Y DISTORSIÓN MASTER GLOBAL
       masterFilter = audioCtx.createBiquadFilter();
       masterFilter.type = 'lowpass';
       masterFilter.frequency.setValueAtTime(20000, audioCtx.currentTime);
@@ -362,7 +359,6 @@
 
       masterDistortion = audioCtx.createWaveShaper();
 
-      // MÓDULO REVERB GLOBAL
       convolverNode = audioCtx.createConvolver();
       convolverNode.buffer = createReverbImpulse(audioCtx);
 
@@ -371,7 +367,6 @@
 
       convolverNode.connect(reverbWetGain);
 
-      // SOFT CLIPPER & COMPRESOR MASTER (PUNCH & POTENCIA)
       masterClipper = audioCtx.createWaveShaper();
       masterClipper.curve = makeSoftClipCurve(2.2);
 
@@ -385,14 +380,10 @@
       masterGain = audioCtx.createGain();
       masterGain.gain.setValueAtTime(0.8, audioCtx.currentTime);
 
-      // RUTA DE AUDIO
       masterFilter.connect(masterDistortion);
       masterDistortion.connect(masterClipper);
-      
-      // Send a Reverb
       masterDistortion.connect(convolverNode);
       reverbWetGain.connect(masterClipper);
-
       masterClipper.connect(masterCompressor);
       masterCompressor.connect(masterGain);
       masterGain.connect(audioCtx.destination);
@@ -446,11 +437,9 @@
       return targetTime;
     }
 
-    // MAPEO A PANTALLA COMPLETA
     function updateMasterXY(xPercent, yPercent) {
       if (!masterFilter || !masterDistortion || !reverbWetGain) return;
 
-      // EJE Y: Filtro Paso Alto (Arriba) / Paso Bajo (Abajo)
       if (yPercent < 0.45) {
         masterFilter.type = 'highpass';
         const factor = (0.45 - yPercent) / 0.45;
@@ -469,7 +458,6 @@
         masterFilter.Q.setTargetAtTime(1, audioCtx.currentTime, 0.015);
       }
 
-      // EJE X: Izquierda = REVERB | Derecha = DISTORSIÓN
       if (xPercent < 0.45) {
         const reverbAmount = (0.45 - xPercent) / 0.45;
         reverbWetGain.gain.setTargetAtTime(reverbAmount * 0.85, audioCtx.currentTime, 0.015);
@@ -499,9 +487,9 @@
       }
     }
 
-    // -------------------------------------------------------------
-    // PADS: REPRODUCCIÓN SEGÚN REGLAS DE DURACIÓN
-    // -------------------------------------------------------------
+    // ---------------------------------------------
+    // GESTIÓN DE PADS
+    // ---------------------------------------------
     const activePadNodes = {};
 
     function startPadSound(padId, soundKey) {
@@ -515,10 +503,9 @@
       const padGain = audioCtx.createGain();
       padGain.gain.setValueAtTime(0.8, audioCtx.currentTime);
 
-      // 1, 4, 7, 8, 9 (1/16) vs 2, 3, 5, 6 (1/8)
       const isEighthSound = ['sample2', 'sample3', 'sample5', 'sample6'].includes(soundKey);
 
-      source.loop = false;
+      source.loop = true;
 
       if (soundKey === 'sample1') {
         const bassFilter = audioCtx.createBiquadFilter();
@@ -539,29 +526,60 @@
         padGain.connect(masterFilter);
       }
 
-      const startTime = getNextQuantizedTime(16);
+      source.start(audioCtx.currentTime);
 
       const loopBuf = audioBuffers['loop'];
       const points = getUnpaddedLoopPoints(loopBuf);
       const effectiveDuration = points.end - points.start;
-      
-      // 1/16 o 1/8 de tiempo exacto
       const targetDuration = isEighthSound ? (effectiveDuration / 8) : (effectiveDuration / 16);
 
-      source.start(startTime, 0, targetDuration);
+      const tapTimeout = setTimeout(() => {
+        if (activePadNodes[padId] && activePadNodes[padId].isTapping) {
+          stopPadSound(padId);
+        }
+      }, targetDuration * 1000);
 
-      activePadNodes[padId] = { source, padGain };
+      activePadNodes[padId] = { source, padGain, tapTimeout, isTapping: true };
     }
 
     function stopPadSound(padId, immediate = false) {
       if (activePadNodes[padId]) {
+        const { source, padGain, tapTimeout } = activePadNodes[padId];
+        if (tapTimeout) clearTimeout(tapTimeout);
         delete activePadNodes[padId];
+
+        const now = audioCtx.currentTime;
+        if (immediate) {
+          try {
+            source.stop();
+            source.disconnect();
+          } catch (e) {}
+        } else {
+          try {
+            padGain.gain.cancelScheduledValues(now);
+            padGain.gain.setValueAtTime(Math.max(0.0001, padGain.gain.value), now);
+            padGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.03);
+            source.stop(now + 0.035);
+          } catch (e) {
+            try { source.stop(); } catch(err) {}
+          }
+        }
       }
     }
 
-    // -------------------------------------------------------------
-    // EFECTOS RE-BREAK A, RE-BREAK B (PITCH DIVE) Y SCRATCH
-    // -------------------------------------------------------------
+    function holdPadSound(padId) {
+      if (activePadNodes[padId]) {
+        if (activePadNodes[padId].tapTimeout) {
+          clearTimeout(activePadNodes[padId].tapTimeout);
+          activePadNodes[padId].tapTimeout = null;
+        }
+        activePadNodes[padId].isTapping = false;
+      }
+    }
+
+    // ---------------------------------------------
+    // RE-BREAKS Y EFECTOS
+    // ---------------------------------------------
     let isStutterActive = false;
     let currentStutterSource = null;
     let stutterTimeout = null;
@@ -639,38 +657,41 @@
       }
 
       if (type === 'rebreak_b') {
-        // RE-BREAK B: PITCH DIVE (Tartamudeo rápido que sube y baja de tono de forma agresiva)
+        // RE-BREAK B: Microcortes dinámicos de 1/32, 1/16 y 1/8
         stutterTimeout = setTimeout(() => {
           if (!isStutterActive) return;
 
           drumLoopGain.gain.cancelScheduledValues(audioCtx.currentTime);
           drumLoopGain.gain.setValueAtTime(0, audioCtx.currentTime);
 
-          const elapsed = audioCtx.currentTime - loopStartTime;
-          const currentPos = elapsed % effectiveDuration;
-          const slice16Duration = effectiveDuration / 16;
-          const sliceIndex = Math.floor(currentPos / slice16Duration);
-          const sliceStart = loopPoints.start + (sliceIndex * slice16Duration);
+          function playMicroCutsStep() {
+            if (!isStutterActive) return;
 
-          currentStutterSource = audioCtx.createBufferSource();
-          currentStutterSource.buffer = buffer;
-          currentStutterSource.loop = true;
-          currentStutterSource.loopStart = sliceStart;
-          currentStutterSource.loopEnd = sliceStart + slice16Duration;
+            // Elegimos aleatoriamente entre 1/32 (32 divisiones), 1/16 (16) o 1/8 (8)
+            const divisionsArr = [8, 16, 32];
+            const divisions = divisionsArr[Math.floor(Math.random() * divisionsArr.length)];
+            const sliceDuration = effectiveDuration / divisions;
 
-          const stutterGain = audioCtx.createGain();
-          stutterGain.gain.setValueAtTime(0.85, audioCtx.currentTime);
+            const randomIndex = Math.floor(Math.random() * divisions);
+            const sliceStart = loopPoints.start + (randomIndex * sliceDuration);
 
-          currentStutterSource.connect(stutterGain);
-          stutterGain.connect(masterFilter);
+            const sliceSource = audioCtx.createBufferSource();
+            sliceSource.buffer = buffer;
 
-          currentStutterSource.start(0, sliceStart);
+            const sliceGain = audioCtx.createGain();
+            sliceGain.gain.setValueAtTime(0.85, audioCtx.currentTime);
 
-          // Curva de Pitch Dive / Cyberpunk Laser Bend
-          const now = audioCtx.currentTime;
-          currentStutterSource.playbackRate.setValueAtTime(1.8, now);
-          currentStutterSource.playbackRate.exponentialRampToValueAtTime(0.5, now + 0.15);
-          currentStutterSource.playbackRate.exponentialRampToValueAtTime(2.4, now + 0.3);
+            sliceSource.connect(sliceGain);
+            sliceGain.connect(masterFilter);
+
+            sliceSource.start(audioCtx.currentTime, sliceStart, sliceDuration * 1.05);
+
+            currentStutterSource = sliceSource;
+
+            stutterTimeout = setTimeout(playMicroCutsStep, sliceDuration * 1000);
+          }
+
+          playMicroCutsStep();
         }, initialDelay);
       }
     }
@@ -721,7 +742,6 @@
       }
     });
 
-    // PANTALLA DE INICIO
     const playBtn = document.getElementById('playBtn');
     const startScreen = document.getElementById('startScreen');
     const app = document.getElementById('app');
@@ -732,9 +752,9 @@
       await initSystem();
     });
 
-    // -------------------------------------------------------------
-    // GESTIÓN MULTI-TOUCH LIMPIA Y CONTROL DE FX
-    // -------------------------------------------------------------
+    // ---------------------------------------------
+    // GESTIÓN MULTI-TOUCH
+    // ---------------------------------------------
     const activeTouches = new Map();
 
     document.querySelectorAll('.pad').forEach((pad, index) => {
@@ -758,7 +778,8 @@
           stutterType,
           startX: e.clientX,
           startY: e.clientY,
-          isDragging: false
+          isDragging: false,
+          timeDown: Date.now()
         });
 
         if (soundKey) {
@@ -776,6 +797,12 @@
       const distance = Math.hypot(e.clientX - touch.startX, e.clientY - touch.startY);
       if (distance > 18) {
         touch.isDragging = true;
+      }
+
+      if (!touch.isDragging && (Date.now() - touch.timeDown > 120)) {
+        if (touch.soundKey) {
+          holdPadSound(touch.padId);
+        }
       }
 
       if (touch.isDragging) {
@@ -820,4 +847,3 @@
   </script>
 </body>
 </html>
-
