@@ -29,7 +29,7 @@
       overflow: hidden;
     }
 
-    /* PANTALLA DE INICIO (OVERLAY PLAY) */
+    /* PANTALLA DE INICIO */
     #startScreen {
       position: fixed;
       top: 0;
@@ -113,7 +113,7 @@
       text-shadow: 0 0 5px #00ff66;
     }
 
-    /* GRID DE 12 PADS (3x4) */
+    /* GRID DE 12 PADS */
     .pad-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -146,7 +146,6 @@
       color: #ffffff;
     }
 
-    /* PADS GROSS BEAT / GLITCH */
     .pad.glitch-pad {
       background: linear-gradient(145deg, #3a1628, #240b17);
       border-color: #ff0055;
@@ -181,7 +180,7 @@
 </head>
 <body>
 
-  <!-- PANTALLA DE INICIO CON BOTÓN PLAY -->
+  <!-- PANTALLA DE INICIO -->
   <div id="startScreen">
     <h1>PS2 JUNGLE PAD</h1>
     <p>TAP TO START SOUND SYSTEM</p>
@@ -196,7 +195,7 @@
     </div>
 
     <div class="pad-grid">
-      <!-- 9 SAMPLES PRINCIPALES (DURACIÓN: 1 TIEMPO DEL COMPÁS) -->
+      <!-- 9 SAMPLES PRINCIPALES (DURACIÓN: 1/4 BARRA) -->
       <div class="pad" data-sound="sample1"><span>SMP 01</span><div class="indicator">BASS BOOST</div></div>
       <div class="pad" data-sound="sample2"><span>SMP 02</span><div class="indicator">INSTANT</div></div>
       <div class="pad" data-sound="sample3"><span>SMP 03</span><div class="indicator">INSTANT</div></div>
@@ -207,9 +206,9 @@
       <div class="pad" data-sound="sample8"><span>SMP 08</span><div class="indicator">SYNCED</div></div>
       <div class="pad" data-sound="sample9"><span>SMP 09</span><div class="indicator">SYNCED</div></div>
 
-      <!-- 3 PADS GROSS BEAT SINCRO SIN BLOQUEOS -->
-      <div class="pad glitch-pad" data-stutter="rebreak_a"><span>RE-BREAK A</span><div class="indicator">JUNGLE CHOP</div></div>
-      <div class="pad glitch-pad" data-stutter="rebreak_b"><span>RE-BREAK B</span><div class="indicator">GROSS BEAT</div></div>
+      <!-- 3 PADS GROSS BEAT Y TAPE STOP -->
+      <div class="pad glitch-pad" data-stutter="rebreak_a"><span>RE-BREAK A</span><div class="indicator">1/4 & 1/8 SYNC</div></div>
+      <div class="pad glitch-pad" data-stutter="rebreak_b"><span>RE-BREAK B</span><div class="indicator">GRID CAOS</div></div>
       <div class="pad glitch-pad" data-stutter="scratch"><span>SLOW TAPE STOP</span><div class="indicator">VINYL BRAKE</div></div>
     </div>
   </div>
@@ -223,8 +222,11 @@
     let drumLoopGain = null;
     let loopStartTime = 0;
 
+    // AUDIO NODES MASTER (AFECTAN A TODO EL SONIDO COMPLETO)
     let masterGain = null;
     let masterCompressor = null;
+    let masterFilter = null;
+    let masterDistortion = null;
 
     const soundFiles = {
       loop: './sonidos/ps2-drumbeat.mp3',
@@ -277,6 +279,14 @@
     async function initSystem() {
       audioCtx = new AudioContext();
 
+      // FILTRO Y DISTORSIÓN MASTER GLOBAL
+      masterFilter = audioCtx.createBiquadFilter();
+      masterFilter.type = 'lowpass';
+      masterFilter.frequency.setValueAtTime(20000, audioCtx.currentTime);
+      masterFilter.Q.setValueAtTime(1, audioCtx.currentTime);
+
+      masterDistortion = audioCtx.createWaveShaper();
+
       masterCompressor = audioCtx.createDynamicsCompressor();
       masterCompressor.threshold.setValueAtTime(-10, audioCtx.currentTime);
       masterCompressor.knee.setValueAtTime(25, audioCtx.currentTime);
@@ -287,6 +297,9 @@
       masterGain = audioCtx.createGain();
       masterGain.gain.setValueAtTime(0.75, audioCtx.currentTime);
 
+      // RUTA DE AUDIO GLOBAL: [Fuentes] -> MasterFilter -> MasterDistortion -> MasterGain -> MasterCompressor -> Speakers
+      masterFilter.connect(masterDistortion);
+      masterDistortion.connect(masterGain);
       masterGain.connect(masterCompressor);
       masterCompressor.connect(audioCtx.destination);
 
@@ -312,7 +325,7 @@
       drumLoopGain.gain.setValueAtTime(0.85, audioCtx.currentTime);
 
       drumLoopSource.connect(drumLoopGain);
-      drumLoopGain.connect(masterGain);
+      drumLoopGain.connect(masterFilter);
 
       loopStartTime = audioCtx.currentTime - points.start;
       drumLoopSource.start(0, points.start);
@@ -353,7 +366,46 @@
     }
 
     // -------------------------------------------------------------
-    // PADS: 1 TIEMPO DE COMPÁS DE DURACIÓN + BASS SATURATOR SMP 01
+    // CONTROL DE FILTRO MASTER XY (APLICA A TODO EL AUDIO)
+    // -------------------------------------------------------------
+    function updateMasterXY(xPercent, yPercent) {
+      if (!masterFilter || !masterDistortion) return;
+
+      if (yPercent < 0.48) {
+        masterFilter.type = 'highpass';
+        const factor = (0.48 - yPercent) / 0.48;
+        const hpFreq = Math.pow(factor, 2) * 11000 + 20;
+        masterFilter.frequency.setTargetAtTime(hpFreq, audioCtx.currentTime, 0.015);
+        masterFilter.Q.setTargetAtTime(1 + factor * 4, audioCtx.currentTime, 0.015);
+      } else if (yPercent > 0.52) {
+        masterFilter.type = 'lowpass';
+        const factor = (yPercent - 0.52) / 0.48;
+        const lpFreq = Math.pow(1 - factor, 2) * 18000 + 90;
+        masterFilter.frequency.setTargetAtTime(lpFreq, audioCtx.currentTime, 0.015);
+        masterFilter.Q.setTargetAtTime(1 + factor * 4, audioCtx.currentTime, 0.015);
+      } else {
+        masterFilter.type = 'lowpass';
+        masterFilter.frequency.setTargetAtTime(20000, audioCtx.currentTime, 0.015);
+        masterFilter.Q.setTargetAtTime(1, audioCtx.currentTime, 0.015);
+      }
+
+      const distAmount = Math.pow(xPercent, 2) * 45;
+      masterDistortion.curve = makeDistortionCurve(distAmount);
+    }
+
+    function resetMasterFilter() {
+      if (masterFilter) {
+        masterFilter.type = 'lowpass';
+        masterFilter.frequency.setTargetAtTime(20000, audioCtx.currentTime, 0.1);
+        masterFilter.Q.setTargetAtTime(1, audioCtx.currentTime, 0.1);
+      }
+      if (masterDistortion) {
+        masterDistortion.curve = null;
+      }
+    }
+
+    // -------------------------------------------------------------
+    // PADS: DURACIÓN 1/4 DE BARRA
     // -------------------------------------------------------------
     const activePadNodes = {};
 
@@ -369,13 +421,6 @@
       const padGain = audioCtx.createGain();
       padGain.gain.setValueAtTime(0.8, audioCtx.currentTime);
 
-      const filter = audioCtx.createBiquadFilter();
-      filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(20000, audioCtx.currentTime);
-      filter.Q.setValueAtTime(1, audioCtx.currentTime);
-
-      const distortion = audioCtx.createWaveShaper();
-
       if (soundKey === 'sample1') {
         const bassFilter = audioCtx.createBiquadFilter();
         bassFilter.type = 'peaking';
@@ -389,14 +434,10 @@
         source.connect(padGain);
         padGain.connect(bassFilter);
         bassFilter.connect(bassDist);
-        bassDist.connect(filter);
-        filter.connect(distortion);
-        distortion.connect(masterGain);
+        bassDist.connect(masterFilter);
       } else {
         source.connect(padGain);
-        padGain.connect(filter);
-        filter.connect(distortion);
-        distortion.connect(masterGain);
+        padGain.connect(masterFilter);
       }
 
       const unquantizedSamples = ['sample2', 'sample3', 'sample4', 'sample5', 'sample6'];
@@ -404,17 +445,16 @@
 
       const startTime = isInstant ? audioCtx.currentTime : getNextQuantizedTime(16);
 
-      // DURACIÓN DE EXACTAMENTE 1 TIEMPO DEL COMPÁS (1/4 BAR)
-      let oneBeatDuration = 0.5;
+      let quarterBarDuration = 0.35;
       if (audioBuffers['loop']) {
         const loopPoints = getUnpaddedLoopPoints(audioBuffers['loop']);
-        oneBeatDuration = (loopPoints.end - loopPoints.start) * 0.25;
+        quarterBarDuration = (loopPoints.end - loopPoints.start) / 8;
       }
 
-      const stopTime = startTime + oneBeatDuration;
+      const stopTime = startTime + quarterBarDuration;
 
       source.start(startTime);
-      padGain.gain.setValueAtTime(0.8, Math.max(startTime, stopTime - 0.03));
+      padGain.gain.setValueAtTime(0.8, Math.max(startTime, stopTime - 0.02));
       padGain.gain.exponentialRampToValueAtTime(0.0001, stopTime);
       source.stop(stopTime);
 
@@ -422,33 +462,7 @@
         delete activePadNodes[padId];
       }, Math.max(0, (stopTime - audioCtx.currentTime) * 1000));
 
-      activePadNodes[padId] = { source, filter, distortion, padGain, timeoutId };
-    }
-
-    function updatePadXY(padId, xPercent, yPercent) {
-      const nodes = activePadNodes[padId];
-      if (!nodes) return;
-
-      if (yPercent < 0.48) {
-        nodes.filter.type = 'highpass';
-        const factor = (0.48 - yPercent) / 0.48;
-        const hpFreq = Math.pow(factor, 2) * 12000 + 20;
-        nodes.filter.frequency.setTargetAtTime(hpFreq, audioCtx.currentTime, 0.015);
-        nodes.filter.Q.setTargetAtTime(1 + factor * 5, audioCtx.currentTime, 0.015);
-      } else if (yPercent > 0.52) {
-        nodes.filter.type = 'lowpass';
-        const factor = (yPercent - 0.52) / 0.48;
-        const lpFreq = Math.pow(1 - factor, 2) * 18000 + 80;
-        nodes.filter.frequency.setTargetAtTime(lpFreq, audioCtx.currentTime, 0.015);
-        nodes.filter.Q.setTargetAtTime(1 + factor * 5, audioCtx.currentTime, 0.015);
-      } else {
-        nodes.filter.type = 'lowpass';
-        nodes.filter.frequency.setTargetAtTime(20000, audioCtx.currentTime, 0.015);
-        nodes.filter.Q.setTargetAtTime(1, audioCtx.currentTime, 0.015);
-      }
-
-      const distAmount = Math.pow(xPercent, 2) * 60;
-      nodes.distortion.curve = makeDistortionCurve(distAmount);
+      activePadNodes[padId] = { source, padGain, timeoutId };
     }
 
     function stopPadSound(padId, immediate = false) {
@@ -466,20 +480,8 @@
       }
     }
 
-    function resetPadFilterToClean(padId) {
-      if (activePadNodes[padId]) {
-        const { filter, distortion } = activePadNodes[padId];
-        try {
-          filter.type = 'lowpass';
-          filter.frequency.setTargetAtTime(20000, audioCtx.currentTime, 0.1);
-          filter.Q.setTargetAtTime(1, audioCtx.currentTime, 0.1);
-          if (distortion) distortion.curve = null;
-        } catch(e) {}
-      }
-    }
-
     // -------------------------------------------------------------
-    // EFECTOS GROSS BEAT FLUIDOS (SIN BLOQUEO DE BATERÍA)
+    // EFECTOS RE-BREAK A (1/4 & 1/8 SYNC) Y RE-BREAK B (GRID CAOS)
     // -------------------------------------------------------------
     let isStutterActive = false;
     let currentStutterSource = null;
@@ -516,7 +518,7 @@
           stutterGain.gain.setValueAtTime(0.85, audioCtx.currentTime);
 
           currentStutterSource.connect(stutterGain);
-          stutterGain.connect(masterGain);
+          stutterGain.connect(masterFilter);
 
           currentStutterSource.start(0, currentPos);
 
@@ -527,8 +529,14 @@
       }
 
       const sliceDuration = effectiveDuration / 16;
-      const patternA = [0, 0, 4, 4, 2, 2, 6, 6, 8, 10, 12, 14, 15, 15, 14, 12];
-      const patternB = [0, 2, 4, 6, 8, 8, 10, 12, 14, 14, 12, 10, 8, 6, 4, 2];
+      
+      // PATRÓN A (ORDENADO EN 1/4 Y 1/8):
+      // Combina bloques enteros de 1/4 de compás [0,1], [8,9] con cortes picados de 1/8 saltando por el loop
+      const patternA = [0, 1, 8, 9, 4, 12, 2, 6, 8, 9, 0, 1, 10, 14, 4, 5];
+      
+      // PATRÓN B (CAÓTICO 100% CUANTIZADO EN GRID 1/16):
+      // Saltos impredecibles que cambian constantemente pero locked a la grilla
+      const patternB = [14, 3, 9, 0, 12, 5, 2, 11, 7, 15, 1, 10, 4, 13, 8, 6];
 
       const patternSeq = (type === 'rebreak_a') ? patternA : patternB;
 
@@ -554,7 +562,7 @@
           sliceGain.gain.setValueAtTime(0.85, audioCtx.currentTime);
 
           sliceSource.connect(sliceGain);
-          sliceGain.connect(masterGain);
+          sliceGain.connect(masterFilter);
 
           sliceSource.start(audioCtx.currentTime, sliceStartTime, sliceDuration * 1.05);
 
@@ -617,19 +625,19 @@
         } else if (stutterType) {
           startStutter(stutterType);
         }
+
+        calculateXY(e, pad);
       });
 
       pad.addEventListener('pointermove', (e) => {
-        if (pad.classList.contains('active') && soundKey) {
-          calculateXY(e, pad, padId);
+        if (pad.classList.contains('active')) {
+          calculateXY(e, pad);
         }
       });
 
       const endHandler = (e) => {
         pad.classList.remove('active');
-        if (soundKey) {
-          resetPadFilterToClean(padId);
-        }
+        resetMasterFilter();
         if (stutterType) {
           stopStutter();
         }
@@ -640,7 +648,7 @@
       pad.addEventListener('pointercancel', endHandler);
     });
 
-    function calculateXY(e, padElement, padId) {
+    function calculateXY(e, padElement) {
       const rect = padElement.getBoundingClientRect();
       const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
       const y = Math.max(0, Math.min(e.clientY - rect.top, rect.height));
@@ -648,7 +656,7 @@
       const xPercent = x / rect.width;
       const yPercent = y / rect.height;
 
-      updatePadXY(padId, xPercent, yPercent);
+      updateMasterXY(xPercent, yPercent);
     }
   </script>
 </body>
