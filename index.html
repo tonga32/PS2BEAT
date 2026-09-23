@@ -236,7 +236,7 @@
 
       <!-- 3 PADS GROSS BEAT / FX -->
       <div class="pad glitch-pad" data-stutter="rebreak_a"><span>RE-BREAK A</span><div class="indicator">1/32 STUTTER</div></div>
-      <div class="pad glitch-pad" data-stutter="rebreak_b"><span>RE-BREAK B</span><div class="indicator">CHAOS GLITCH</div></div>
+      <div class="pad glitch-pad" data-stutter="rebreak_b"><span>RE-BREAK B</span><div class="indicator">1/32 &amp; 1/64 CUTS</div></div>
       <div class="pad glitch-pad" data-stutter="scratch"><span>SLOW TAPE STOP</span><div class="indicator">VINYL BRAKE</div></div>
     </div>
   </div>
@@ -318,7 +318,7 @@
     }
 
     // Curva de Soft Clipping para dar pegada al Master
-    function makeSoftClipCurve(amount = 2.5) {
+    function makeSoftClipCurve(amount = 2.2) {
       const n_samples = 44100;
       const curve = new Float32Array(n_samples);
       for (let i = 0; i < n_samples; ++i) {
@@ -511,7 +511,7 @@
 
       const source = audioCtx.createBufferSource();
       source.buffer = audioBuffers[soundKey];
-      source.loop = true; // Permite sonar sin límite mientras esté presionado
+      source.loop = true;
 
       const padGain = audioCtx.createGain();
       padGain.gain.setValueAtTime(0.8, audioCtx.currentTime);
@@ -556,7 +556,6 @@
             source.disconnect();
           } catch (e) {}
         } else {
-          // Fade-out suave al soltar el dedo
           try {
             padGain.gain.cancelScheduledValues(now);
             padGain.gain.setValueAtTime(Math.max(0.0001, padGain.gain.value), now);
@@ -570,7 +569,7 @@
     }
 
     // -------------------------------------------------------------
-    // EFECTOS RE-BREAK A (1/32 STUTTER) Y RE-BREAK B (ULTRA CAOS)
+    // EFECTOS RE-BREAK A (1/32 STUTTER) Y RE-BREAK B (1/32 + 1/64 CUTS SIN PITCH)
     // -------------------------------------------------------------
     let isStutterActive = false;
     let currentStutterSource = null;
@@ -617,7 +616,6 @@
         return;
       }
 
-      // 1/32 DE TIEMPO DE COMPÁS
       const slice32Duration = effectiveDuration / 32;
 
       if (type === 'rebreak_a') {
@@ -652,25 +650,27 @@
       }
 
       if (type === 'rebreak_b') {
-        // RE-BREAK B: ULTRA CAÓTICO CON MICRO-PITCH Y SALTOS ALEATORIOS
+        // RE-BREAK B: MICRO-CORTES ALEATORIOS DE 1/32 Y 1/64 (PITCH ORIGINAL)
         stutterTimeout = setTimeout(() => {
           if (!isStutterActive) return;
 
           drumLoopGain.gain.cancelScheduledValues(audioCtx.currentTime);
           drumLoopGain.gain.setValueAtTime(0, audioCtx.currentTime);
 
-          function playUltraCaosStep() {
+          function playMicroCutsStep() {
             if (!isStutterActive) return;
 
-            const randomSliceIndex = Math.floor(Math.random() * 32);
-            const sliceStartTime = loopPoints.start + (randomSliceIndex * slice32Duration);
+            // Elegir aleatoriamente entre subdivisión de 1/32 o 1/64
+            const is64 = Math.random() < 0.5;
+            const divisions = is64 ? 64 : 32;
+            const sliceDuration = effectiveDuration / divisions;
+
+            const randomIndex = Math.floor(Math.random() * divisions);
+            const sliceStart = loopPoints.start + (randomIndex * sliceDuration);
 
             const sliceSource = audioCtx.createBufferSource();
             sliceSource.buffer = buffer;
-
-            // Variación aleatoria de velocidad/pitch para tono caótico
-            const randomPitch = 0.88 + Math.random() * 0.38;
-            sliceSource.playbackRate.setValueAtTime(randomPitch, audioCtx.currentTime);
+            // Tono/Pitch normal constante (1.0)
 
             const sliceGain = audioCtx.createGain();
             sliceGain.gain.setValueAtTime(0.85, audioCtx.currentTime);
@@ -678,13 +678,15 @@
             sliceSource.connect(sliceGain);
             sliceGain.connect(masterFilter);
 
-            sliceSource.start(audioCtx.currentTime, sliceStartTime, slice32Duration * 1.1);
+            sliceSource.start(audioCtx.currentTime, sliceStart, sliceDuration * 1.05);
 
             currentStutterSource = sliceSource;
+
+            // Programar el siguiente micro-corte según la duración del trozo actual
+            stutterTimeout = setTimeout(playMicroCutsStep, sliceDuration * 1000);
           }
 
-          playUltraCaosStep();
-          stutterInterval = setInterval(playUltraCaosStep, slice32Duration * 1000);
+          playMicroCutsStep();
         }, initialDelay);
       }
     }
