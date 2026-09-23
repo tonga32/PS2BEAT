@@ -196,8 +196,8 @@
     </div>
 
     <div class="pad-grid">
-      <!-- 9 SAMPLES PRINCIPALES (DURACIÓN: MEDIA BARRA) -->
-      <div class="pad" data-sound="sample1"><span>SMP 01</span><div class="indicator">BASS (BOOST)</div></div>
+      <!-- 9 SAMPLES PRINCIPALES (DURACIÓN: 1 TIEMPO DEL COMPÁS) -->
+      <div class="pad" data-sound="sample1"><span>SMP 01</span><div class="indicator">BASS BOOST</div></div>
       <div class="pad" data-sound="sample2"><span>SMP 02</span><div class="indicator">INSTANT</div></div>
       <div class="pad" data-sound="sample3"><span>SMP 03</span><div class="indicator">INSTANT</div></div>
       <div class="pad" data-sound="sample4"><span>SMP 04</span><div class="indicator">INSTANT</div></div>
@@ -207,7 +207,7 @@
       <div class="pad" data-sound="sample8"><span>SMP 08</span><div class="indicator">SYNCED</div></div>
       <div class="pad" data-sound="sample9"><span>SMP 09</span><div class="indicator">SYNCED</div></div>
 
-      <!-- 3 PADS GROSS BEAT CORREGIDOS -->
+      <!-- 3 PADS GROSS BEAT SINCRO SIN BLOQUEOS -->
       <div class="pad glitch-pad" data-stutter="rebreak_a"><span>RE-BREAK A</span><div class="indicator">JUNGLE CHOP</div></div>
       <div class="pad glitch-pad" data-stutter="rebreak_b"><span>RE-BREAK B</span><div class="indicator">GROSS BEAT</div></div>
       <div class="pad glitch-pad" data-stutter="scratch"><span>SLOW TAPE STOP</span><div class="indicator">VINYL BRAKE</div></div>
@@ -353,7 +353,7 @@
     }
 
     // -------------------------------------------------------------
-    // PADS: MEDIA BARRA DE DURACIÓN + BASS SATURATOR PARA SMP 01
+    // PADS: 1 TIEMPO DE COMPÁS DE DURACIÓN + BASS SATURATOR SMP 01
     // -------------------------------------------------------------
     const activePadNodes = {};
 
@@ -376,17 +376,15 @@
 
       const distortion = audioCtx.createWaveShaper();
 
-      // SATURADOR DE MEDIOS/AGUDOS EXCLUSIVO PARA SAMPLE 1 (BAJO)
-      let bassBoostGain = null;
       if (soundKey === 'sample1') {
         const bassFilter = audioCtx.createBiquadFilter();
         bassFilter.type = 'peaking';
-        bassFilter.frequency.setValueAtTime(1200, audioCtx.currentTime); // Realce de medios
+        bassFilter.frequency.setValueAtTime(1200, audioCtx.currentTime);
         bassFilter.gain.setValueAtTime(12, audioCtx.currentTime);
         bassFilter.Q.setValueAtTime(1.5, audioCtx.currentTime);
 
         const bassDist = audioCtx.createWaveShaper();
-        bassDist.curve = makeDistortionCurve(35); // Distorsión armónica suave
+        bassDist.curve = makeDistortionCurve(35);
 
         source.connect(padGain);
         padGain.connect(bassFilter);
@@ -401,25 +399,22 @@
         distortion.connect(masterGain);
       }
 
-      // DETERMINAR SI LLEVA CUANTIZACIÓN
-      // Samples 02, 03, 04, 05, 06 -> SIN CUANTIZAR (Disparo Instantáneo)
-      // Samples 01, 07, 08, 09 -> CUANTIZADOS
       const unquantizedSamples = ['sample2', 'sample3', 'sample4', 'sample5', 'sample6'];
       const isInstant = unquantizedSamples.includes(soundKey);
 
       const startTime = isInstant ? audioCtx.currentTime : getNextQuantizedTime(16);
 
-      // DURACIÓN DE MEDIA BARRA (HALF BAR)
-      let halfBarDuration = 1.0;
+      // DURACIÓN DE EXACTAMENTE 1 TIEMPO DEL COMPÁS (1/4 BAR)
+      let oneBeatDuration = 0.5;
       if (audioBuffers['loop']) {
         const loopPoints = getUnpaddedLoopPoints(audioBuffers['loop']);
-        halfBarDuration = (loopPoints.end - loopPoints.start) * 0.5;
+        oneBeatDuration = (loopPoints.end - loopPoints.start) * 0.25;
       }
 
-      const stopTime = startTime + halfBarDuration;
+      const stopTime = startTime + oneBeatDuration;
 
       source.start(startTime);
-      padGain.gain.setValueAtTime(0.8, Math.max(startTime, stopTime - 0.04));
+      padGain.gain.setValueAtTime(0.8, Math.max(startTime, stopTime - 0.03));
       padGain.gain.exponentialRampToValueAtTime(0.0001, stopTime);
       source.stop(stopTime);
 
@@ -484,8 +479,9 @@
     }
 
     // -------------------------------------------------------------
-    // EFECTOS GROSS BEAT RESTAURADOS SIN SILENCIAR EL LOOP
+    // EFECTOS GROSS BEAT FLUIDOS (SIN BLOQUEO DE BATERÍA)
     // -------------------------------------------------------------
+    let isStutterActive = false;
     let currentStutterSource = null;
     let stutterInterval = null;
     let stutterTimeout = null;
@@ -494,76 +490,86 @@
       if (!drumLoopSource || !audioBuffers['loop']) return;
       stopStutter();
 
-      // Atenúa temporalmente la batería principal
-      drumLoopGain.gain.cancelScheduledValues(audioCtx.currentTime);
-      drumLoopGain.gain.setValueAtTime(0, audioCtx.currentTime);
+      isStutterActive = true;
 
       const buffer = audioBuffers['loop'];
       const loopPoints = getUnpaddedLoopPoints(buffer);
       const effectiveDuration = loopPoints.end - loopPoints.start;
 
-      // 1. TAPE STOP
+      const startTime = getNextQuantizedTime(16);
+      const initialDelay = Math.max(0, (startTime - audioCtx.currentTime) * 1000);
+
       if (type === 'scratch') {
-        const elapsed = audioCtx.currentTime - loopStartTime;
-        const currentPos = loopPoints.start + (elapsed % effectiveDuration);
+        stutterTimeout = setTimeout(() => {
+          if (!isStutterActive) return;
 
-        currentStutterSource = audioCtx.createBufferSource();
-        currentStutterSource.buffer = buffer;
+          drumLoopGain.gain.cancelScheduledValues(audioCtx.currentTime);
+          drumLoopGain.gain.setValueAtTime(0, audioCtx.currentTime);
 
-        const stutterGain = audioCtx.createGain();
-        stutterGain.gain.setValueAtTime(0.85, audioCtx.currentTime);
+          const elapsed = audioCtx.currentTime - loopStartTime;
+          const currentPos = loopPoints.start + (elapsed % effectiveDuration);
 
-        currentStutterSource.connect(stutterGain);
-        stutterGain.connect(masterGain);
+          currentStutterSource = audioCtx.createBufferSource();
+          currentStutterSource.buffer = buffer;
 
-        const startTime = getNextQuantizedTime(16);
-        currentStutterSource.start(startTime, currentPos);
+          const stutterGain = audioCtx.createGain();
+          stutterGain.gain.setValueAtTime(0.85, audioCtx.currentTime);
 
-        currentStutterSource.playbackRate.setValueAtTime(1.0, startTime);
-        currentStutterSource.playbackRate.exponentialRampToValueAtTime(0.01, startTime + 1.1);
+          currentStutterSource.connect(stutterGain);
+          stutterGain.connect(masterGain);
+
+          currentStutterSource.start(0, currentPos);
+
+          currentStutterSource.playbackRate.setValueAtTime(1.0, audioCtx.currentTime);
+          currentStutterSource.playbackRate.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1.1);
+        }, initialDelay);
         return;
       }
 
-      // 2. PATRONES RE-BREAK A Y RE-BREAK B
       const sliceDuration = effectiveDuration / 16;
-      
       const patternA = [0, 0, 4, 4, 2, 2, 6, 6, 8, 10, 12, 14, 15, 15, 14, 12];
       const patternB = [0, 2, 4, 6, 8, 8, 10, 12, 14, 14, 12, 10, 8, 6, 4, 2];
 
       const patternSeq = (type === 'rebreak_a') ? patternA : patternB;
 
-      const elapsed = audioCtx.currentTime - loopStartTime;
-      let stepIndex = Math.floor((elapsed % effectiveDuration) / sliceDuration) % patternSeq.length;
-
-      function playPatternStep() {
-        const sliceIndex = patternSeq[stepIndex % patternSeq.length];
-        const sliceStartTime = loopPoints.start + (sliceIndex * sliceDuration);
-
-        const sliceSource = audioCtx.createBufferSource();
-        sliceSource.buffer = buffer;
-
-        const sliceGain = audioCtx.createGain();
-        sliceGain.gain.setValueAtTime(0.85, audioCtx.currentTime);
-
-        sliceSource.connect(sliceGain);
-        sliceGain.connect(masterGain);
-
-        sliceSource.start(audioCtx.currentTime, sliceStartTime, sliceDuration * 1.05);
-
-        currentStutterSource = sliceSource;
-        stepIndex = (stepIndex + 1) % patternSeq.length;
-      }
-
-      const startTime = getNextQuantizedTime(16);
-      const initialDelay = Math.max(0, (startTime - audioCtx.currentTime) * 1000);
-
       stutterTimeout = setTimeout(() => {
+        if (!isStutterActive) return;
+
+        drumLoopGain.gain.cancelScheduledValues(audioCtx.currentTime);
+        drumLoopGain.gain.setValueAtTime(0, audioCtx.currentTime);
+
+        const elapsed = audioCtx.currentTime - loopStartTime;
+        let stepIndex = Math.floor((elapsed % effectiveDuration) / sliceDuration) % patternSeq.length;
+
+        function playPatternStep() {
+          if (!isStutterActive) return;
+
+          const sliceIndex = patternSeq[stepIndex % patternSeq.length];
+          const sliceStartTime = loopPoints.start + (sliceIndex * sliceDuration);
+
+          const sliceSource = audioCtx.createBufferSource();
+          sliceSource.buffer = buffer;
+
+          const sliceGain = audioCtx.createGain();
+          sliceGain.gain.setValueAtTime(0.85, audioCtx.currentTime);
+
+          sliceSource.connect(sliceGain);
+          sliceGain.connect(masterGain);
+
+          sliceSource.start(audioCtx.currentTime, sliceStartTime, sliceDuration * 1.05);
+
+          currentStutterSource = sliceSource;
+          stepIndex = (stepIndex + 1) % patternSeq.length;
+        }
+
         playPatternStep();
         stutterInterval = setInterval(playPatternStep, sliceDuration * 1000);
       }, initialDelay);
     }
 
     function stopStutter() {
+      isStutterActive = false;
+
       if (stutterTimeout) {
         clearTimeout(stutterTimeout);
         stutterTimeout = null;
@@ -579,8 +585,8 @@
         } catch(e) {}
         currentStutterSource = null;
       }
-      // Restaura SIEMPRE la batería principal de inmediato
-      if (drumLoopGain) {
+
+      if (drumLoopGain && audioCtx) {
         drumLoopGain.gain.cancelScheduledValues(audioCtx.currentTime);
         drumLoopGain.gain.setValueAtTime(0.85, audioCtx.currentTime);
       }
