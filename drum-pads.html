@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>PadStation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ps2-blue:#0a3fae; --ps2-blue-dark:#031233; --ps2-cyan:#4fd0ff;
+    --glass:rgba(255,255,255,.08); --text:#eaf3ff; --muted:#9db3d6;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none;}
+  html,body{height:100%; margin:0; overflow:hidden;}
+  body{
+    font-family:'Rajdhani',sans-serif; color:var(--text);
+    background:
+      radial-gradient(circle at 20% 15%, rgba(79,208,255,.25), transparent 45%),
+      radial-gradient(circle at 85% 80%, rgba(10,63,174,.5), transparent 50%),
+      linear-gradient(160deg, var(--ps2-blue-dark), #05205e 60%, var(--ps2-blue-dark));
+    min-height:100vh; display:flex; align-items:center; justify-content:center;
+    touch-action:none; position:relative;
+  }
+  body::before{ /* scanlines */
+    content:''; position:fixed; inset:0; pointer-events:none; z-index:5;
+    background:repeating-linear-gradient(0deg, rgba(255,255,255,.025) 0px, rgba(255,255,255,.025) 1px, transparent 2px, transparent 3px);
+    mix-blend-mode:overlay;
+  }
+  .glow-blob{
+    position:fixed; border-radius:50%; filter:blur(60px); opacity:.35; pointer-events:none;
+    animation:float 9s ease-in-out infinite;
+  }
+  .glow-blob.b1{width:280px; height:280px; background:var(--ps2-cyan); top:8%; left:-60px;}
+  .glow-blob.b2{width:340px; height:340px; background:#1a5fe0; bottom:5%; right:-80px; animation-delay:2.5s;}
+  @keyframes float{0%,100%{transform:translateY(0);}50%{transform:translateY(-25px);}}
+
+  /* ---------- Start screen ---------- */
+  #startScreen{
+    position:relative; z-index:2; display:flex; flex-direction:column; align-items:center; gap:26px;
+    text-align:center; padding:20px;
+  }
+  .logo{
+    font-family:'Orbitron',sans-serif; font-weight:900; font-size:1.6rem; letter-spacing:4px;
+    background:linear-gradient(90deg,#bfe6ff,#4fd0ff 45%,#bfe6ff);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    text-shadow:0 0 30px rgba(79,208,255,.5);
+  }
+  .logo small{display:block; font-family:'Rajdhani',sans-serif; font-weight:600; font-size:.6rem;
+    letter-spacing:3px; color:var(--muted); margin-top:4px;}
+  #playBtn{
+    width:118px; height:118px; border-radius:50%; border:none; cursor:pointer;
+    background:radial-gradient(circle at 35% 30%, #eaf6ff, #4fd0ff 40%, #0a3fae 75%, #031233);
+    box-shadow:0 0 0 6px rgba(79,208,255,.15), 0 0 40px rgba(79,208,255,.55), inset 0 4px 10px rgba(255,255,255,.5);
+    display:flex; align-items:center; justify-content:center; position:relative;
+    animation:pulse 2.2s ease-in-out infinite; transition:transform .1s;
+  }
+  #playBtn:active{transform:scale(.94);}
+  #playBtn svg{width:38px; height:38px; margin-left:6px; filter:drop-shadow(0 1px 2px rgba(0,0,0,.4));}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 6px rgba(79,208,255,.15),0 0 40px rgba(79,208,255,.55),inset 0 4px 10px rgba(255,255,255,.5);}
+    50%{box-shadow:0 0 0 14px rgba(79,208,255,.05),0 0 60px rgba(79,208,255,.75),inset 0 4px 10px rgba(255,255,255,.5);}}
+  #startLabel{font-family:'Orbitron',sans-serif; font-size:.72rem; letter-spacing:3px; color:var(--ps2-cyan);
+    animation:blink 1.4s steps(1) infinite;}
+  @keyframes blink{50%{opacity:.15;}}
+  #loadStatus{font-size:.7rem; color:var(--muted); letter-spacing:1px; min-height:16px;}
+
+  /* ---------- App (pads) ---------- */
+  #app{
+    position:relative; z-index:2; display:none; flex-direction:column; align-items:center;
+    width:100%; max-width:460px; padding:18px; opacity:0; transition:opacity .5s ease;
+  }
+  #app.visible{display:flex; opacity:1;}
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between; width:100%;
+    margin-bottom:16px; padding:0 4px;
+  }
+  .topbar .logo{font-size:1rem; letter-spacing:2px;}
+  #loopDot{width:9px; height:9px; border-radius:50%; background:#3dffb0; box-shadow:0 0 8px #3dffb0;
+    animation:blink 1s steps(1) infinite; display:inline-block; margin-right:6px;}
+  .status-pill{font-family:'Orbitron',sans-serif; font-size:.6rem; letter-spacing:2px; color:var(--muted);
+    display:flex; align-items:center;}
+
+  .grid{
+    display:grid; grid-template-columns:repeat(3,1fr); gap:14px; width:100%;
+  }
+  .pad{
+    aspect-ratio:1/1; border-radius:18px; border:none; cursor:pointer; position:relative; overflow:hidden;
+    background:linear-gradient(160deg, #123a8a, #061a4d 55%, #04123a);
+    box-shadow:0 6px 14px rgba(0,0,0,.5), inset 0 2px 3px rgba(255,255,255,.15), inset 0 -3px 8px rgba(0,0,0,.5);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+    transition:transform .06s ease, box-shadow .12s ease;
+  }
+  .pad::after{ /* glossy sheen */
+    content:''; position:absolute; top:-30%; left:-10%; width:120%; height:60%;
+    background:linear-gradient(180deg, rgba(255,255,255,.35), rgba(255,255,255,0));
+    border-radius:50%; pointer-events:none;
+  }
+  .pad .num{font-family:'Orbitron',sans-serif; font-weight:700; font-size:1.05rem; color:#eaf6ff; z-index:1;}
+  .pad .name{font-size:.62rem; letter-spacing:1px; color:var(--muted); z-index:1; text-transform:uppercase;}
+  .pad .fx{font-family:'Orbitron',sans-serif; font-size:.55rem; color:var(--ps2-cyan); z-index:1; min-height:12px;}
+  .pad.active{
+    transform:scale(.93);
+    background:linear-gradient(160deg, #2a6bff, #0a3fae 55%, #051d6b);
+    box-shadow:0 0 0 3px rgba(79,208,255,.6), 0 0 24px rgba(79,208,255,.65), inset 0 2px 3px rgba(255,255,255,.25);
+  }
+
+  .hint{margin-top:18px; font-size:.66rem; color:var(--muted); text-align:center; line-height:1.5; max-width:420px;}
+</style>
+</head>
+<body>
+
+<div class="glow-blob b1"></div>
+<div class="glow-blob b2"></div>
+
+<div id="startScreen">
+  <div class="logo">PADSTATION<small>DRUM BREAK MACHINE</small></div>
+  <button id="playBtn" aria-label="Play">
+    <svg viewBox="0 0 24 24" fill="#04123a"><polygon points="6,3 21,12 6,21"/></svg>
+  </button>
+  <div id="startLabel">TOCÁ PARA EMPEZAR</div>
+  <div id="loadStatus">cargando sonidos…</div>
+</div>
+
+<div id="app">
+  <div class="topbar">
+    <div class="logo">PADSTATION</div>
+    <div class="status-pill"><span id="loopDot"></span>LOOP</div>
+  </div>
+  <div class="grid" id="pads"></div>
+  <p class="hint">
+    Tocá y soltá para un golpe. Mantené presionado para loopear el sonido: movés el dedo <b>arriba</b> para quedarte con los agudos, <b>abajo</b> para quedarte con los graves, y a los costados cambiás el pitch (como acelerar o frenar un vinilo).
+  </p>
+</div>
+
+<script>
+/* =====================================================================
+   CONFIG — el desarrollador define acá los sonidos fijos de cada pad.
+   Los archivos van en una carpeta "sounds/" junto a este HTML.
+   Los visitantes de la página NO pueden cambiar ni cargar sonidos.
+   ===================================================================== */
+const PADS = [
+  { file: 'sounds/pad1.mp3', name: 'Kick'   },
+  { file: 'sounds/pad2.mp3', name: 'Snare'  },
+  { file: 'sounds/pad3.mp3', name: 'Hat'    },
+  { file: 'sounds/pad4.mp3', name: 'Break 1'},
+  { file: 'sounds/pad5.mp3', name: 'Break 2'},
+  { file: 'sounds/pad6.mp3', name: 'Perc'   },
+  { file: 'sounds/pad7.mp3', name: 'Vox'    },
+  { file: 'sounds/pad8.mp3', name: 'FX'     },
+  { file: 'sounds/pad9.mp3', name: 'Scratch'},
+];
+const LOOP_FILE = 'sounds/loop.mp3';
+
+/* ---------- Audio setup ---------- */
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+const ctx = new AudioCtx();
+const master = ctx.createGain();
+master.gain.value = 0.9;
+master.connect(ctx.destination);
+
+async function loadBuffer(url){
+  try{
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const arr = await res.arrayBuffer();
+    return await ctx.decodeAudioData(arr);
+  } catch(e){ return null; }
+}
+
+/* ---------- Preload everything as soon as the page opens ---------- */
+const padBuffers = new Array(PADS.length).fill(null);
+let loopBuffer = null;
+let allReady = false;
+
+(async () => {
+  const loads = PADS.map((p, i) => loadBuffer(p.file).then(b => padBuffers[i] = b));
+  loads.push(loadBuffer(LOOP_FILE).then(b => loopBuffer = b));
+  await Promise.all(loads);
+  allReady = true;
+  document.getElementById('loadStatus').textContent = 'listo';
+})();
+
+/* ---------- Start screen -> app ---------- */
+const playBtn = document.getElementById('playBtn');
+const startScreen = document.getElementById('startScreen');
+const appEl = document.getElementById('app');
+const loadStatus = document.getElementById('loadStatus');
+let loopSource = null;
+
+playBtn.addEventListener('click', async () => {
+  if (ctx.state === 'suspended') await ctx.resume();
+  if (!allReady){
+    loadStatus.textContent = 'esperando audio…';
+    await new Promise(res => { const t = setInterval(() => { if (allReady){ clearInterval(t); res(); } }, 80); });
+  }
+  if (loopBuffer){
+    loopSource = ctx.createBufferSource();
+    loopSource.buffer = loopBuffer;
+    loopSource.loop = true;
+    loopSource.connect(master);
+    loopSource.start(0);
+  }
+  startScreen.style.display = 'none';
+  appEl.classList.add('visible');
+  buildPads();
+});
+
+/* ---------- Pads: tap = one-shot, hold = loop + XY filter/pitch ---------- */
+function buildPads(){
+  const padsEl = document.getElementById('pads');
+  const maxDist = 130;      // px of travel for full filter/pitch sweep
+  const active = {};        // pointerId -> {index, source, filter, gain, startX, startY}
+
+  PADS.forEach((p, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'pad';
+    btn.innerHTML = `<div class="num">${i + 1}</div><div class="name">${p.name}</div><div class="fx"></div>`;
+    const fxEl = () => btn.querySelector('.fx');
+
+    function startVoice(x, y){
+      if (!padBuffers[i]) return null;
+      const src = ctx.createBufferSource();
+      src.buffer = padBuffers[i];
+      src.loop = true;
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'allpass';
+      const gain = ctx.createGain();
+      gain.gain.value = 1;
+      src.connect(filter).connect(gain).connect(master);
+      src.start(0);
+      btn.classList.add('active');
+      return { src, filter, gain, startX: x, startY: y };
+    }
+
+    function updateVoice(voice, x, y){
+      const dx = x - voice.startX;
+      const dy = y - voice.startY;
+
+      // Vertical: up = highpass (graves fuera, agudos se escuchan) / down = lowpass (agudos fuera)
+      const tUp = Math.max(0, Math.min(1, -dy / maxDist));
+      const tDown = Math.max(0, Math.min(1, dy / maxDist));
+      let label = '';
+      if (tUp > 0.02){
+        voice.filter.type = 'highpass';
+        const freq = 40 * Math.pow(6000 / 40, tUp);
+        voice.filter.frequency.setTargetAtTime(freq, ctx.currentTime, 0.03);
+        label = 'HI ▲ ' + Math.round(freq) + 'Hz';
+      } else if (tDown > 0.02){
+        voice.filter.type = 'lowpass';
+        const freq = 15000 * Math.pow(150 / 15000, tDown);
+        voice.filter.frequency.setTargetAtTime(freq, ctx.currentTime, 0.03);
+        label = 'LO ▼ ' + Math.round(freq) + 'Hz';
+      } else {
+        voice.filter.type = 'allpass';
+      }
+
+      // Horizontal: pitch / playback rate, tipo acelerar-frenar un vinilo
+      const tX = Math.max(-1, Math.min(1, dx / maxDist));
+      const rate = Math.pow(2, tX * 0.7); // ~0.62x .. 1.6x
+      voice.src.playbackRate.setTargetAtTime(rate, ctx.currentTime, 0.03);
+      if (Math.abs(tX) > 0.05){
+        label += (label ? ' · ' : '') + (tX > 0 ? '▶' : '◀') + ' ' + rate.toFixed(2) + 'x';
+      }
+      fxEl().textContent = label;
+    }
+
+    function stopVoice(voice){
+      if (!voice) return;
+      try{ voice.src.stop(); } catch(e){}
+      voice.src.disconnect(); voice.filter.disconnect(); voice.gain.disconnect();
+    }
+
+    btn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      btn.setPointerCapture(e.pointerId);
+      active[e.pointerId] = { index: i, voice: startVoice(e.clientX, e.clientY) };
+    });
+    btn.addEventListener('pointermove', (e) => {
+      const a = active[e.pointerId];
+      if (a && a.voice) updateVoice(a.voice, e.clientX, e.clientY);
+    });
+    const release = (e) => {
+      const a = active[e.pointerId];
+      if (a){
+        stopVoice(a.voice);
+        btn.classList.remove('active');
+        fxEl().textContent = '';
+        delete active[e.pointerId];
+      }
+    };
+    btn.addEventListener('pointerup', release);
+    btn.addEventListener('pointercancel', release);
+    btn.addEventListener('pointerleave', (e) => { if (e.buttons === 0) release(e); });
+
+    padsEl.appendChild(btn);
+  });
+}
+</script>
+</body>
+</html>
