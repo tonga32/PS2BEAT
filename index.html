@@ -107,7 +107,7 @@
       color: #ffffff;
     }
 
-    /* BOTÓN CHIQUITO MUTE */
+    /* BOTÓN MUTE */
     .mute-btn {
       background: rgba(255, 0, 85, 0.15);
       border: 1px solid #ff0055;
@@ -235,8 +235,8 @@
       <div class="pad" data-sound="sample9"><span>SMP 09</span><div class="indicator">SYNCED</div></div>
 
       <!-- 3 PADS GROSS BEAT / FX -->
-      <div class="pad glitch-pad" data-stutter="rebreak_a"><span>RE-BREAK A</span><div class="indicator">LOOP 1/8 LAST</div></div>
-      <div class="pad glitch-pad" data-stutter="rebreak_b"><span>RE-BREAK B</span><div class="indicator">ULTRA CAOS</div></div>
+      <div class="pad glitch-pad" data-stutter="rebreak_a"><span>RE-BREAK A</span><div class="indicator">1/32 STUTTER</div></div>
+      <div class="pad glitch-pad" data-stutter="rebreak_b"><span>RE-BREAK B</span><div class="indicator">CHAOS GLITCH</div></div>
       <div class="pad glitch-pad" data-stutter="scratch"><span>SLOW TAPE STOP</span><div class="indicator">VINYL BRAKE</div></div>
     </div>
   </div>
@@ -250,16 +250,16 @@
     let drumLoopGain = null;
     let loopStartTime = 0;
 
-    // AUDIO NODES MASTER & FX GLOBAL
+    // AUDIO NODES MASTER & FX
     let masterGain = null;
     let masterCompressor = null;
+    let masterClipper = null;
     let masterFilter = null;
     let masterDistortion = null;
 
-    // MASTER DELAY NODES
-    let delayNode = null;
-    let delayFeedback = null;
-    let delayWetGain = null;
+    // MASTER REVERB NODES
+    let convolverNode = null;
+    let reverbWetGain = null;
 
     let isMuted = false;
 
@@ -301,6 +301,46 @@
       return { start, end };
     }
 
+    // Generador de respuesta de impulso sintética para Reverb
+    function createReverbImpulse(ctx, duration = 1.2, decay = 2.5) {
+      const sampleRate = ctx.sampleRate;
+      const length = sampleRate * duration;
+      const impulse = ctx.createBuffer(2, length, sampleRate);
+      const left = impulse.getChannelData(0);
+      const right = impulse.getChannelData(1);
+
+      for (let i = 0; i < length; i++) {
+        const decayFactor = Math.pow(1 - i / length, decay);
+        left[i] = (Math.random() * 2 - 1) * decayFactor;
+        right[i] = (Math.random() * 2 - 1) * decayFactor;
+      }
+      return impulse;
+    }
+
+    // Curva de Soft Clipping para dar pegada al Master
+    function makeSoftClipCurve(amount = 2.5) {
+      const n_samples = 44100;
+      const curve = new Float32Array(n_samples);
+      for (let i = 0; i < n_samples; ++i) {
+        const x = (i * 2) / n_samples - 1;
+        curve[i] = Math.tanh(amount * x) / Math.tanh(amount);
+      }
+      return curve;
+    }
+
+    function makeDistortionCurve(amount) {
+      if (amount <= 0) return null;
+      const k = amount;
+      const n_samples = 44100;
+      const curve = new Float32Array(n_samples);
+      const deg = Math.PI / 180;
+      for (let i = 0; i < n_samples; ++i) {
+        const x = (i * 2) / n_samples - 1;
+        curve[i] = ((3 + k) * x * 20 * deg) / (Math.PI + k * Math.abs(x));
+      }
+      return curve;
+    }
+
     async function loadAudio(key, url) {
       try {
         const response = await fetch(url);
@@ -322,38 +362,40 @@
 
       masterDistortion = audioCtx.createWaveShaper();
 
-      // MÓDULO DELAY GLOBAL
-      delayNode = audioCtx.createDelay();
-      delayNode.delayTime.setValueAtTime(0.18, audioCtx.currentTime);
+      // MÓDULO REVERB GLOBAL
+      convolverNode = audioCtx.createConvolver();
+      convolverNode.buffer = createReverbImpulse(audioCtx);
 
-      delayFeedback = audioCtx.createGain();
-      delayFeedback.gain.setValueAtTime(0.4, audioCtx.currentTime);
+      reverbWetGain = audioCtx.createGain();
+      reverbWetGain.gain.setValueAtTime(0, audioCtx.currentTime);
 
-      delayWetGain = audioCtx.createGain();
-      delayWetGain.gain.setValueAtTime(0, audioCtx.currentTime);
+      convolverNode.connect(reverbWetGain);
 
-      delayNode.connect(delayFeedback);
-      delayFeedback.connect(delayNode);
-      delayNode.connect(delayWetGain);
+      // SOFT CLIPPER & COMPRESOR MASTER (PUNCH & POTENCIA)
+      masterClipper = audioCtx.createWaveShaper();
+      masterClipper.curve = makeSoftClipCurve(2.2);
 
       masterCompressor = audioCtx.createDynamicsCompressor();
-      masterCompressor.threshold.setValueAtTime(-10, audioCtx.currentTime);
-      masterCompressor.knee.setValueAtTime(25, audioCtx.currentTime);
-      masterCompressor.ratio.setValueAtTime(10, audioCtx.currentTime);
-      masterCompressor.attack.setValueAtTime(0.003, audioCtx.currentTime);
-      masterCompressor.release.setValueAtTime(0.2, audioCtx.currentTime);
+      masterCompressor.threshold.setValueAtTime(-12, audioCtx.currentTime);
+      masterCompressor.knee.setValueAtTime(15, audioCtx.currentTime);
+      masterCompressor.ratio.setValueAtTime(5, audioCtx.currentTime);
+      masterCompressor.attack.setValueAtTime(0.002, audioCtx.currentTime);
+      masterCompressor.release.setValueAtTime(0.12, audioCtx.currentTime);
 
       masterGain = audioCtx.createGain();
-      masterGain.gain.setValueAtTime(0.75, audioCtx.currentTime);
+      masterGain.gain.setValueAtTime(0.8, audioCtx.currentTime);
 
+      // RUTA DE AUDIO
       masterFilter.connect(masterDistortion);
-      masterDistortion.connect(masterGain);
+      masterDistortion.connect(masterClipper);
       
-      masterDistortion.connect(delayNode);
-      delayWetGain.connect(masterGain);
+      // Send a Reverb
+      masterDistortion.connect(convolverNode);
+      reverbWetGain.connect(masterClipper);
 
-      masterGain.connect(masterCompressor);
-      masterCompressor.connect(audioCtx.destination);
+      masterClipper.connect(masterCompressor);
+      masterCompressor.connect(masterGain);
+      masterGain.connect(audioCtx.destination);
 
       const promises = Object.keys(soundFiles).map(key => loadAudio(key, soundFiles[key]));
       await Promise.all(promises);
@@ -404,23 +446,11 @@
       return targetTime;
     }
 
-    function makeDistortionCurve(amount) {
-      if (amount <= 0) return null;
-      const k = amount;
-      const n_samples = 44100;
-      const curve = new Float32Array(n_samples);
-      const deg = Math.PI / 180;
-      for (let i = 0; i < n_samples; ++i) {
-        const x = (i * 2) / n_samples - 1;
-        curve[i] = ((3 + k) * x * 20 * deg) / (Math.PI + k * Math.abs(x));
-      }
-      return curve;
-    }
-
     // MAPEO A PANTALLA COMPLETA
     function updateMasterXY(xPercent, yPercent) {
-      if (!masterFilter || !masterDistortion || !delayWetGain) return;
+      if (!masterFilter || !masterDistortion || !reverbWetGain) return;
 
+      // EJE Y: Filtro Paso Alto (Arriba) / Paso Bajo (Abajo)
       if (yPercent < 0.45) {
         masterFilter.type = 'highpass';
         const factor = (0.45 - yPercent) / 0.45;
@@ -439,17 +469,18 @@
         masterFilter.Q.setTargetAtTime(1, audioCtx.currentTime, 0.015);
       }
 
+      // EJE X: Izquierda = REVERB | Derecha = DISTORSIÓN
       if (xPercent < 0.45) {
-        const delayAmount = (0.45 - xPercent) / 0.45;
-        delayWetGain.gain.setTargetAtTime(delayAmount * 0.65, audioCtx.currentTime, 0.015);
+        const reverbAmount = (0.45 - xPercent) / 0.45;
+        reverbWetGain.gain.setTargetAtTime(reverbAmount * 0.85, audioCtx.currentTime, 0.015);
         masterDistortion.curve = null;
       } else if (xPercent > 0.55) {
         const distFactor = (xPercent - 0.55) / 0.45;
-        const distAmount = Math.pow(distFactor, 2) * 55;
+        const distAmount = Math.pow(distFactor, 2) * 60;
         masterDistortion.curve = makeDistortionCurve(distAmount);
-        delayWetGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.015);
+        reverbWetGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.015);
       } else {
-        delayWetGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.015);
+        reverbWetGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.015);
         masterDistortion.curve = null;
       }
     }
@@ -463,12 +494,14 @@
       if (masterDistortion) {
         masterDistortion.curve = null;
       }
-      if (delayWetGain) {
-        delayWetGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.08);
+      if (reverbWetGain) {
+        reverbWetGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.08);
       }
     }
 
-    // PADS: DISPARO DE SAMPLES
+    // -------------------------------------------------------------
+    // PADS: SAMPLES CONTINUOS MIENTRAS SE MANTIENEN PRESIONADOS
+    // -------------------------------------------------------------
     const activePadNodes = {};
 
     function startPadSound(padId, soundKey) {
@@ -478,7 +511,7 @@
 
       const source = audioCtx.createBufferSource();
       source.buffer = audioBuffers[soundKey];
-      source.loop = true;
+      source.loop = true; // Permite sonar sin límite mientras esté presionado
 
       const padGain = audioCtx.createGain();
       padGain.gain.setValueAtTime(0.8, audioCtx.currentTime);
@@ -507,42 +540,38 @@
 
       const startTime = isInstant ? audioCtx.currentTime : getNextQuantizedTime(16);
 
-      let quarterBarDuration = 0.35;
-      if (audioBuffers['loop']) {
-        const loopPoints = getUnpaddedLoopPoints(audioBuffers['loop']);
-        quarterBarDuration = (loopPoints.end - loopPoints.start) / 8;
-      }
-
-      const stopTime = startTime + quarterBarDuration;
-
       source.start(startTime);
-      padGain.gain.setValueAtTime(0.8, Math.max(startTime, stopTime - 0.02));
-      padGain.gain.exponentialRampToValueAtTime(0.0001, stopTime);
-      source.stop(stopTime);
-
-      const timeoutId = setTimeout(() => {
-        delete activePadNodes[padId];
-      }, Math.max(0, (stopTime - audioCtx.currentTime) * 1000));
-
-      activePadNodes[padId] = { source, padGain, timeoutId };
+      activePadNodes[padId] = { source, padGain };
     }
 
     function stopPadSound(padId, immediate = false) {
       if (activePadNodes[padId]) {
-        const { source, timeoutId } = activePadNodes[padId];
-        if (timeoutId) clearTimeout(timeoutId);
+        const { source, padGain } = activePadNodes[padId];
+        delete activePadNodes[padId];
 
+        const now = audioCtx.currentTime;
         if (immediate) {
           try {
             source.stop();
             source.disconnect();
           } catch (e) {}
-          delete activePadNodes[padId];
+        } else {
+          // Fade-out suave al soltar el dedo
+          try {
+            padGain.gain.cancelScheduledValues(now);
+            padGain.gain.setValueAtTime(Math.max(0.0001, padGain.gain.value), now);
+            padGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.03);
+            source.stop(now + 0.035);
+          } catch (e) {
+            try { source.stop(); } catch(err) {}
+          }
         }
       }
     }
 
-    // EFECTOS GROSS BEAT Y LOOPER
+    // -------------------------------------------------------------
+    // EFECTOS RE-BREAK A (1/32 STUTTER) Y RE-BREAK B (ULTRA CAOS)
+    // -------------------------------------------------------------
     let isStutterActive = false;
     let currentStutterSource = null;
     let stutterInterval = null;
@@ -588,25 +617,28 @@
         return;
       }
 
+      // 1/32 DE TIEMPO DE COMPÁS
+      const slice32Duration = effectiveDuration / 32;
+
       if (type === 'rebreak_a') {
+        // RE-BREAK A: LOOP INFINITO DEL ÚLTIMO 1/32 DE COMPÁS
         stutterTimeout = setTimeout(() => {
           if (!isStutterActive) return;
 
           drumLoopGain.gain.cancelScheduledValues(audioCtx.currentTime);
           drumLoopGain.gain.setValueAtTime(0, audioCtx.currentTime);
 
-          const slice8Duration = effectiveDuration / 8;
           const elapsed = audioCtx.currentTime - loopStartTime;
           const currentPos = elapsed % effectiveDuration;
           
-          const sliceIndex = Math.floor(currentPos / slice8Duration);
-          const sliceStart = loopPoints.start + (sliceIndex * slice8Duration);
+          const sliceIndex = Math.floor(currentPos / slice32Duration);
+          const sliceStart = loopPoints.start + (sliceIndex * slice32Duration);
 
           currentStutterSource = audioCtx.createBufferSource();
           currentStutterSource.buffer = buffer;
           currentStutterSource.loop = true;
           currentStutterSource.loopStart = sliceStart;
-          currentStutterSource.loopEnd = sliceStart + slice8Duration;
+          currentStutterSource.loopEnd = sliceStart + slice32Duration;
 
           const stutterGain = audioCtx.createGain();
           stutterGain.gain.setValueAtTime(0.85, audioCtx.currentTime);
@@ -620,22 +652,25 @@
       }
 
       if (type === 'rebreak_b') {
-        const sliceDuration = effectiveDuration / 16;
-
+        // RE-BREAK B: ULTRA CAÓTICO CON MICRO-PITCH Y SALTOS ALEATORIOS
         stutterTimeout = setTimeout(() => {
           if (!isStutterActive) return;
 
           drumLoopGain.gain.cancelScheduledValues(audioCtx.currentTime);
           drumLoopGain.gain.setValueAtTime(0, audioCtx.currentTime);
 
-          function playRandomCaosStep() {
+          function playUltraCaosStep() {
             if (!isStutterActive) return;
 
-            const randomSliceIndex = Math.floor(Math.random() * 16);
-            const sliceStartTime = loopPoints.start + (randomSliceIndex * sliceDuration);
+            const randomSliceIndex = Math.floor(Math.random() * 32);
+            const sliceStartTime = loopPoints.start + (randomSliceIndex * slice32Duration);
 
             const sliceSource = audioCtx.createBufferSource();
             sliceSource.buffer = buffer;
+
+            // Variación aleatoria de velocidad/pitch para tono caótico
+            const randomPitch = 0.88 + Math.random() * 0.38;
+            sliceSource.playbackRate.setValueAtTime(randomPitch, audioCtx.currentTime);
 
             const sliceGain = audioCtx.createGain();
             sliceGain.gain.setValueAtTime(0.85, audioCtx.currentTime);
@@ -643,13 +678,13 @@
             sliceSource.connect(sliceGain);
             sliceGain.connect(masterFilter);
 
-            sliceSource.start(audioCtx.currentTime, sliceStartTime, sliceDuration * 1.05);
+            sliceSource.start(audioCtx.currentTime, sliceStartTime, slice32Duration * 1.1);
 
             currentStutterSource = sliceSource;
           }
 
-          playRandomCaosStep();
-          stutterInterval = setInterval(playRandomCaosStep, sliceDuration * 1000);
+          playUltraCaosStep();
+          stutterInterval = setInterval(playUltraCaosStep, slice32Duration * 1000);
         }, initialDelay);
       }
     }
@@ -679,7 +714,7 @@
       }
     }
 
-    // BOTÓN MUTE LÓGICA
+    // MUTE
     const muteBtn = document.getElementById('muteBtn');
     const statusIndicator = document.getElementById('statusIndicator');
 
@@ -696,7 +731,7 @@
         statusIndicator.textContent = 'x MUTED';
       } else {
         masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
-        masterGain.gain.setValueAtTime(0.75, audioCtx.currentTime);
+        masterGain.gain.setValueAtTime(0.8, audioCtx.currentTime);
         muteBtn.classList.remove('muted');
         muteBtn.textContent = 'MUTE';
         statusIndicator.style.color = '#00ff66';
@@ -762,6 +797,9 @@
         isDraggingFX = false;
         resetMasterFilter();
 
+        if (soundKey) {
+          stopPadSound(padId);
+        }
         if (stutterType) {
           stopStutter();
         }
