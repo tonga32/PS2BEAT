@@ -224,15 +224,15 @@
 
     <div class="pad-grid">
       <!-- 9 SAMPLES PRINCIPALES -->
-      <div class="pad" data-sound="sample1"><span>SMP 01</span><div class="indicator">BASS BOOST</div></div>
-      <div class="pad" data-sound="sample2"><span>SMP 02</span><div class="indicator">INSTANT</div></div>
-      <div class="pad" data-sound="sample3"><span>SMP 03</span><div class="indicator">INSTANT</div></div>
-      <div class="pad" data-sound="sample4"><span>SMP 04</span><div class="indicator">INSTANT</div></div>
-      <div class="pad" data-sound="sample5"><span>SMP 05</span><div class="indicator">INSTANT</div></div>
-      <div class="pad" data-sound="sample6"><span>SMP 06</span><div class="indicator">INSTANT</div></div>
-      <div class="pad" data-sound="sample7"><span>SMP 07</span><div class="indicator">SYNCED</div></div>
-      <div class="pad" data-sound="sample8"><span>SMP 08</span><div class="indicator">SYNCED</div></div>
-      <div class="pad" data-sound="sample9"><span>SMP 09</span><div class="indicator">SYNCED</div></div>
+      <div class="pad" data-sound="sample1"><span>SMP 01</span><div class="indicator">1/16 CUT</div></div>
+      <div class="pad" data-sound="sample2"><span>SMP 02</span><div class="indicator">FULL ON</div></div>
+      <div class="pad" data-sound="sample3"><span>SMP 03</span><div class="indicator">FULL ON</div></div>
+      <div class="pad" data-sound="sample4"><span>SMP 04</span><div class="indicator">1/16 CUT</div></div>
+      <div class="pad" data-sound="sample5"><span>SMP 05</span><div class="indicator">FULL ON</div></div>
+      <div class="pad" data-sound="sample6"><span>SMP 06</span><div class="indicator">FULL ON</div></div>
+      <div class="pad" data-sound="sample7"><span>SMP 07</span><div class="indicator">1/16 CUT</div></div>
+      <div class="pad" data-sound="sample8"><span>SMP 08</span><div class="indicator">1/16 CUT</div></div>
+      <div class="pad" data-sound="sample9"><span>SMP 09</span><div class="indicator">1/16 CUT</div></div>
 
       <!-- 3 PADS GROSS BEAT / FX -->
       <div class="pad glitch-pad" data-stutter="rebreak_a"><span>RE-BREAK A</span><div class="indicator">1/32 STUTTER</div></div>
@@ -500,7 +500,7 @@
     }
 
     // -------------------------------------------------------------
-    // PADS: SAMPLES CONTINUOS MIENTRAS SE MANTIENEN PRESIONADOS
+    // PADS: REPRODUCCIÓN SEGÚN REGLAS DE DURACIÓN
     // -------------------------------------------------------------
     const activePadNodes = {};
 
@@ -511,10 +511,21 @@
 
       const source = audioCtx.createBufferSource();
       source.buffer = audioBuffers[soundKey];
-      source.loop = true;
 
       const padGain = audioCtx.createGain();
       padGain.gain.setValueAtTime(0.8, audioCtx.currentTime);
+
+      // Reglas de duración solicitadas:
+      // Sonidos 2, 3, 5 y 6: Suenan hasta el final (loop activado si se mantiene)
+      // Sonidos 1, 4, 7, 8 y 9: Suenan exactamente 1/16 de tiempo
+      const fullSoundKeys = ['sample2', 'sample3', 'sample5', 'sample6'];
+      const isFullSound = fullSoundKeys.includes(soundKey);
+
+      if (isFullSound) {
+        source.loop = true; // Sigue sonando si se mantiene apretado
+      } else {
+        source.loop = false;
+      }
 
       if (soundKey === 'sample1') {
         const bassFilter = audioCtx.createBiquadFilter();
@@ -535,19 +546,31 @@
         padGain.connect(masterFilter);
       }
 
-      const unquantizedSamples = ['sample2', 'sample3', 'sample4', 'sample5', 'sample6'];
-      const isInstant = unquantizedSamples.includes(soundKey);
+      // Los samples 2, 3, 5 y 6 son instantáneos al tacto. Los 1, 4, 7, 8, 9 van quantizados al ritmo.
+      const startTime = isFullSound ? audioCtx.currentTime : getNextQuantizedTime(16);
 
-      const startTime = isInstant ? audioCtx.currentTime : getNextQuantizedTime(16);
+      if (isFullSound) {
+        source.start(startTime);
+      } else {
+        // Duración exacta de 1/16 de compás en segundos
+        const loopBuf = audioBuffers['loop'];
+        const points = getUnpaddedLoopPoints(loopBuf);
+        const effectiveDuration = points.end - points.start;
+        const sixteenthDuration = effectiveDuration / 16;
 
-      source.start(startTime);
-      activePadNodes[padId] = { source, padGain };
+        source.start(startTime, 0, sixteenthDuration);
+      }
+
+      activePadNodes[padId] = { source, padGain, isFullSound };
     }
 
     function stopPadSound(padId, immediate = false) {
       if (activePadNodes[padId]) {
-        const { source, padGain } = activePadNodes[padId];
+        const { source, padGain, isFullSound } = activePadNodes[padId];
         delete activePadNodes[padId];
+
+        // Si es un sonido corto de 1/16, se detiene solo, no necesita fade al soltar
+        if (!isFullSound) return;
 
         const now = audioCtx.currentTime;
         if (immediate) {
@@ -619,7 +642,6 @@
       const slice32Duration = effectiveDuration / 32;
 
       if (type === 'rebreak_a') {
-        // RE-BREAK A: LOOP INFINITO DEL ÚLTIMO 1/32 DE COMPÁS
         stutterTimeout = setTimeout(() => {
           if (!isStutterActive) return;
 
@@ -650,7 +672,6 @@
       }
 
       if (type === 'rebreak_b') {
-        // RE-BREAK B: MICRO-CORTES ALEATORIOS DE 1/32 Y 1/64 (PITCH ORIGINAL)
         stutterTimeout = setTimeout(() => {
           if (!isStutterActive) return;
 
@@ -750,7 +771,7 @@
     });
 
     // -------------------------------------------------------------
-    // GESTIÓN MULTI-TOUCH LIMPIA Y CONTROL DE FX SIN INTERFERENCIAS
+    // GESTIÓN MULTI-TOUCH LIMPIA Y CONTROL DE FX
     // -------------------------------------------------------------
     const activeTouches = new Map();
 
@@ -786,7 +807,6 @@
       });
     });
 
-    // Eventos globales para gestionar movimiento y liberación multitáctil limpia
     window.addEventListener('pointermove', (e) => {
       const touch = activeTouches.get(e.pointerId);
       if (!touch) return;
