@@ -660,7 +660,6 @@
           function playMicroCutsStep() {
             if (!isStutterActive) return;
 
-            // Elegir aleatoriamente entre subdivisión de 1/32 o 1/64
             const is64 = Math.random() < 0.5;
             const divisions = is64 ? 64 : 32;
             const sliceDuration = effectiveDuration / divisions;
@@ -670,7 +669,6 @@
 
             const sliceSource = audioCtx.createBufferSource();
             sliceSource.buffer = buffer;
-            // Tono/Pitch normal constante (1.0)
 
             const sliceGain = audioCtx.createGain();
             sliceGain.gain.setValueAtTime(0.85, audioCtx.currentTime);
@@ -682,7 +680,6 @@
 
             currentStutterSource = sliceSource;
 
-            // Programar el siguiente micro-corte según la duración del trozo actual
             stutterTimeout = setTimeout(playMicroCutsStep, sliceDuration * 1000);
           }
 
@@ -741,7 +738,7 @@
       }
     });
 
-    // EVENTOS TÁCTILES Y ARRASTRE
+    // PANTALLA DE INICIO
     const playBtn = document.getElementById('playBtn');
     const startScreen = document.getElementById('startScreen');
     const app = document.getElementById('app');
@@ -752,9 +749,10 @@
       await initSystem();
     });
 
-    let isDraggingFX = false;
-    let startX = 0;
-    let startY = 0;
+    // -------------------------------------------------------------
+    // GESTIÓN MULTI-TOUCH LIMPIA Y CONTROL DE FX SIN INTERFERENCIAS
+    // -------------------------------------------------------------
+    const activeTouches = new Map();
 
     document.querySelectorAll('.pad').forEach((pad, index) => {
       const padId = `pad_${index}`;
@@ -763,13 +761,22 @@
 
       pad.addEventListener('pointerdown', (e) => {
         e.preventDefault();
+
+        try {
+          pad.setPointerCapture(e.pointerId);
+        } catch (err) {}
+
         pad.classList.add('active');
 
-        startX = e.clientX;
-        startY = e.clientY;
-        isDraggingFX = false;
-
-        resetMasterFilter();
+        activeTouches.set(e.pointerId, {
+          pad,
+          padId,
+          soundKey,
+          stutterType,
+          startX: e.clientX,
+          startY: e.clientY,
+          isDragging: false
+        });
 
         if (soundKey) {
           startPadSound(padId, soundKey);
@@ -777,40 +784,57 @@
           startStutter(stutterType);
         }
       });
+    });
 
-      pad.addEventListener('pointermove', (e) => {
-        if (!pad.classList.contains('active')) return;
+    // Eventos globales para gestionar movimiento y liberación multitáctil limpia
+    window.addEventListener('pointermove', (e) => {
+      const touch = activeTouches.get(e.pointerId);
+      if (!touch) return;
 
-        const distance = Math.hypot(e.clientX - startX, e.clientY - startY);
-        if (distance > 12) {
-          isDraggingFX = true;
-        }
+      const distance = Math.hypot(e.clientX - touch.startX, e.clientY - touch.startY);
+      if (distance > 18) {
+        touch.isDragging = true;
+      }
 
-        if (isDraggingFX) {
-          const xPercent = Math.max(0, Math.min(e.clientX / window.innerWidth, 1));
-          const yPercent = Math.max(0, Math.min(e.clientY / window.innerHeight, 1));
+      if (touch.isDragging) {
+        const xPercent = Math.max(0, Math.min(e.clientX / window.innerWidth, 1));
+        const yPercent = Math.max(0, Math.min(e.clientY / window.innerHeight, 1));
 
-          updateMasterXY(xPercent, yPercent);
-        }
-      });
+        updateMasterXY(xPercent, yPercent);
+      }
+    });
 
-      const endHandler = (e) => {
+    function handlePointerRelease(e) {
+      const touch = activeTouches.get(e.pointerId);
+      if (!touch) return;
+
+      const { pad, padId, soundKey, stutterType } = touch;
+
+      try {
+        pad.releasePointerCapture(e.pointerId);
+      } catch (err) {}
+
+      activeTouches.delete(e.pointerId);
+
+      const hasOtherTouchesOnPad = Array.from(activeTouches.values()).some(t => t.padId === padId);
+      if (!hasOtherTouchesOnPad) {
         pad.classList.remove('active');
-        isDraggingFX = false;
-        resetMasterFilter();
-
         if (soundKey) {
           stopPadSound(padId);
         }
         if (stutterType) {
           stopStutter();
         }
-      };
+      }
 
-      pad.addEventListener('pointerup', endHandler);
-      pad.addEventListener('pointerleave', endHandler);
-      pad.addEventListener('pointercancel', endHandler);
-    });
+      const isAnyTouchDragging = Array.from(activeTouches.values()).some(t => t.isDragging);
+      if (!isAnyTouchDragging) {
+        resetMasterFilter();
+      }
+    }
+
+    window.addEventListener('pointerup', handlePointerRelease);
+    window.addEventListener('pointercancel', handlePointerRelease);
   </script>
 </body>
 </html>
