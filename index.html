@@ -102,13 +102,40 @@
 
     .header .logo {
       font-weight: 700;
-      font-size: 1rem;
+      font-size: 0.9rem;
       letter-spacing: 1.5px;
       color: #ffffff;
     }
 
+    /* BOTÓN CHIQUITO MUTE */
+    .mute-btn {
+      background: rgba(255, 0, 85, 0.15);
+      border: 1px solid #ff0055;
+      color: #ff0055;
+      font-family: 'Chakra Petch', sans-serif;
+      font-size: 0.65rem;
+      font-weight: bold;
+      padding: 4px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      box-shadow: 0 0 6px rgba(255, 0, 85, 0.3);
+      transition: all 0.15s ease;
+    }
+
+    .mute-btn:active {
+      transform: scale(0.92);
+    }
+
+    .mute-btn.muted {
+      background: #ff0055;
+      color: #ffffff;
+      box-shadow: 0 0 12px #ff0055;
+    }
+
     .header .status {
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       color: #00ff66;
       text-shadow: 0 0 5px #00ff66;
     }
@@ -191,11 +218,12 @@
   <div id="app">
     <div class="header">
       <div class="logo">PS2 // BREAKS</div>
-      <div class="status">● DRUM LOOP ACTIVE</div>
+      <button id="muteBtn" class="mute-btn">MUTE</button>
+      <div class="status" id="statusIndicator">● DRUM LOOP ACTIVE</div>
     </div>
 
     <div class="pad-grid">
-      <!-- 9 SAMPLES PRINCIPALES (DURACIÓN: 1/4 BARRA) -->
+      <!-- 9 SAMPLES PRINCIPALES -->
       <div class="pad" data-sound="sample1"><span>SMP 01</span><div class="indicator">BASS BOOST</div></div>
       <div class="pad" data-sound="sample2"><span>SMP 02</span><div class="indicator">INSTANT</div></div>
       <div class="pad" data-sound="sample3"><span>SMP 03</span><div class="indicator">INSTANT</div></div>
@@ -206,9 +234,9 @@
       <div class="pad" data-sound="sample8"><span>SMP 08</span><div class="indicator">SYNCED</div></div>
       <div class="pad" data-sound="sample9"><span>SMP 09</span><div class="indicator">SYNCED</div></div>
 
-      <!-- 3 PADS GROSS BEAT Y TAPE STOP -->
-      <div class="pad glitch-pad" data-stutter="rebreak_a"><span>RE-BREAK A</span><div class="indicator">1/4 & 1/8 SYNC</div></div>
-      <div class="pad glitch-pad" data-stutter="rebreak_b"><span>RE-BREAK B</span><div class="indicator">GRID CAOS</div></div>
+      <!-- 3 PADS GROSS BEAT / FX -->
+      <div class="pad glitch-pad" data-stutter="rebreak_a"><span>RE-BREAK A</span><div class="indicator">LOOP 1/8 LAST</div></div>
+      <div class="pad glitch-pad" data-stutter="rebreak_b"><span>RE-BREAK B</span><div class="indicator">ULTRA CAOS</div></div>
       <div class="pad glitch-pad" data-stutter="scratch"><span>SLOW TAPE STOP</span><div class="indicator">VINYL BRAKE</div></div>
     </div>
   </div>
@@ -222,11 +250,18 @@
     let drumLoopGain = null;
     let loopStartTime = 0;
 
-    // AUDIO NODES MASTER (AFECTAN A TODO EL SONIDO COMPLETO)
+    // AUDIO NODES MASTER & FX GLOBAL
     let masterGain = null;
     let masterCompressor = null;
     let masterFilter = null;
     let masterDistortion = null;
+
+    // MASTER DELAY NODES
+    let delayNode = null;
+    let delayFeedback = null;
+    let delayWetGain = null;
+
+    let isMuted = false;
 
     const soundFiles = {
       loop: './sonidos/ps2-drumbeat.mp3',
@@ -287,6 +322,20 @@
 
       masterDistortion = audioCtx.createWaveShaper();
 
+      // MÓDULO DELAY GLOBAL
+      delayNode = audioCtx.createDelay();
+      delayNode.delayTime.setValueAtTime(0.18, audioCtx.currentTime);
+
+      delayFeedback = audioCtx.createGain();
+      delayFeedback.gain.setValueAtTime(0.4, audioCtx.currentTime);
+
+      delayWetGain = audioCtx.createGain();
+      delayWetGain.gain.setValueAtTime(0, audioCtx.currentTime);
+
+      delayNode.connect(delayFeedback);
+      delayFeedback.connect(delayNode);
+      delayNode.connect(delayWetGain);
+
       masterCompressor = audioCtx.createDynamicsCompressor();
       masterCompressor.threshold.setValueAtTime(-10, audioCtx.currentTime);
       masterCompressor.knee.setValueAtTime(25, audioCtx.currentTime);
@@ -297,9 +346,12 @@
       masterGain = audioCtx.createGain();
       masterGain.gain.setValueAtTime(0.75, audioCtx.currentTime);
 
-      // RUTA DE AUDIO GLOBAL: [Fuentes] -> MasterFilter -> MasterDistortion -> MasterGain -> MasterCompressor -> Speakers
       masterFilter.connect(masterDistortion);
       masterDistortion.connect(masterGain);
+      
+      masterDistortion.connect(delayNode);
+      delayWetGain.connect(masterGain);
+
       masterGain.connect(masterCompressor);
       masterCompressor.connect(audioCtx.destination);
 
@@ -365,21 +417,19 @@
       return curve;
     }
 
-    // -------------------------------------------------------------
-    // CONTROL DE FILTRO MASTER XY (APLICA A TODO EL AUDIO)
-    // -------------------------------------------------------------
+    // MAPEO A PANTALLA COMPLETA
     function updateMasterXY(xPercent, yPercent) {
-      if (!masterFilter || !masterDistortion) return;
+      if (!masterFilter || !masterDistortion || !delayWetGain) return;
 
-      if (yPercent < 0.48) {
+      if (yPercent < 0.45) {
         masterFilter.type = 'highpass';
-        const factor = (0.48 - yPercent) / 0.48;
+        const factor = (0.45 - yPercent) / 0.45;
         const hpFreq = Math.pow(factor, 2) * 11000 + 20;
         masterFilter.frequency.setTargetAtTime(hpFreq, audioCtx.currentTime, 0.015);
         masterFilter.Q.setTargetAtTime(1 + factor * 4, audioCtx.currentTime, 0.015);
-      } else if (yPercent > 0.52) {
+      } else if (yPercent > 0.55) {
         masterFilter.type = 'lowpass';
-        const factor = (yPercent - 0.52) / 0.48;
+        const factor = (yPercent - 0.55) / 0.45;
         const lpFreq = Math.pow(1 - factor, 2) * 18000 + 90;
         masterFilter.frequency.setTargetAtTime(lpFreq, audioCtx.currentTime, 0.015);
         masterFilter.Q.setTargetAtTime(1 + factor * 4, audioCtx.currentTime, 0.015);
@@ -389,24 +439,36 @@
         masterFilter.Q.setTargetAtTime(1, audioCtx.currentTime, 0.015);
       }
 
-      const distAmount = Math.pow(xPercent, 2) * 45;
-      masterDistortion.curve = makeDistortionCurve(distAmount);
+      if (xPercent < 0.45) {
+        const delayAmount = (0.45 - xPercent) / 0.45;
+        delayWetGain.gain.setTargetAtTime(delayAmount * 0.65, audioCtx.currentTime, 0.015);
+        masterDistortion.curve = null;
+      } else if (xPercent > 0.55) {
+        const distFactor = (xPercent - 0.55) / 0.45;
+        const distAmount = Math.pow(distFactor, 2) * 55;
+        masterDistortion.curve = makeDistortionCurve(distAmount);
+        delayWetGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.015);
+      } else {
+        delayWetGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.015);
+        masterDistortion.curve = null;
+      }
     }
 
     function resetMasterFilter() {
       if (masterFilter) {
         masterFilter.type = 'lowpass';
-        masterFilter.frequency.setTargetAtTime(20000, audioCtx.currentTime, 0.1);
-        masterFilter.Q.setTargetAtTime(1, audioCtx.currentTime, 0.1);
+        masterFilter.frequency.setTargetAtTime(20000, audioCtx.currentTime, 0.08);
+        masterFilter.Q.setTargetAtTime(1, audioCtx.currentTime, 0.08);
       }
       if (masterDistortion) {
         masterDistortion.curve = null;
       }
+      if (delayWetGain) {
+        delayWetGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.08);
+      }
     }
 
-    // -------------------------------------------------------------
-    // PADS: DURACIÓN 1/4 DE BARRA
-    // -------------------------------------------------------------
+    // PADS: DISPARO DE SAMPLES
     const activePadNodes = {};
 
     function startPadSound(padId, soundKey) {
@@ -480,9 +542,7 @@
       }
     }
 
-    // -------------------------------------------------------------
-    // EFECTOS RE-BREAK A (1/4 & 1/8 SYNC) Y RE-BREAK B (GRID CAOS)
-    // -------------------------------------------------------------
+    // EFECTOS GROSS BEAT Y LOOPER
     let isStutterActive = false;
     let currentStutterSource = null;
     let stutterInterval = null;
@@ -528,51 +588,70 @@
         return;
       }
 
-      const sliceDuration = effectiveDuration / 16;
-      
-      // PATRÓN A (ORDENADO EN 1/4 Y 1/8):
-      // Combina bloques enteros de 1/4 de compás [0,1], [8,9] con cortes picados de 1/8 saltando por el loop
-      const patternA = [0, 1, 8, 9, 4, 12, 2, 6, 8, 9, 0, 1, 10, 14, 4, 5];
-      
-      // PATRÓN B (CAÓTICO 100% CUANTIZADO EN GRID 1/16):
-      // Saltos impredecibles que cambian constantemente pero locked a la grilla
-      const patternB = [14, 3, 9, 0, 12, 5, 2, 11, 7, 15, 1, 10, 4, 13, 8, 6];
-
-      const patternSeq = (type === 'rebreak_a') ? patternA : patternB;
-
-      stutterTimeout = setTimeout(() => {
-        if (!isStutterActive) return;
-
-        drumLoopGain.gain.cancelScheduledValues(audioCtx.currentTime);
-        drumLoopGain.gain.setValueAtTime(0, audioCtx.currentTime);
-
-        const elapsed = audioCtx.currentTime - loopStartTime;
-        let stepIndex = Math.floor((elapsed % effectiveDuration) / sliceDuration) % patternSeq.length;
-
-        function playPatternStep() {
+      if (type === 'rebreak_a') {
+        stutterTimeout = setTimeout(() => {
           if (!isStutterActive) return;
 
-          const sliceIndex = patternSeq[stepIndex % patternSeq.length];
-          const sliceStartTime = loopPoints.start + (sliceIndex * sliceDuration);
+          drumLoopGain.gain.cancelScheduledValues(audioCtx.currentTime);
+          drumLoopGain.gain.setValueAtTime(0, audioCtx.currentTime);
 
-          const sliceSource = audioCtx.createBufferSource();
-          sliceSource.buffer = buffer;
+          const slice8Duration = effectiveDuration / 8;
+          const elapsed = audioCtx.currentTime - loopStartTime;
+          const currentPos = elapsed % effectiveDuration;
+          
+          const sliceIndex = Math.floor(currentPos / slice8Duration);
+          const sliceStart = loopPoints.start + (sliceIndex * slice8Duration);
 
-          const sliceGain = audioCtx.createGain();
-          sliceGain.gain.setValueAtTime(0.85, audioCtx.currentTime);
+          currentStutterSource = audioCtx.createBufferSource();
+          currentStutterSource.buffer = buffer;
+          currentStutterSource.loop = true;
+          currentStutterSource.loopStart = sliceStart;
+          currentStutterSource.loopEnd = sliceStart + slice8Duration;
 
-          sliceSource.connect(sliceGain);
-          sliceGain.connect(masterFilter);
+          const stutterGain = audioCtx.createGain();
+          stutterGain.gain.setValueAtTime(0.85, audioCtx.currentTime);
 
-          sliceSource.start(audioCtx.currentTime, sliceStartTime, sliceDuration * 1.05);
+          currentStutterSource.connect(stutterGain);
+          stutterGain.connect(masterFilter);
 
-          currentStutterSource = sliceSource;
-          stepIndex = (stepIndex + 1) % patternSeq.length;
-        }
+          currentStutterSource.start(0, sliceStart);
+        }, initialDelay);
+        return;
+      }
 
-        playPatternStep();
-        stutterInterval = setInterval(playPatternStep, sliceDuration * 1000);
-      }, initialDelay);
+      if (type === 'rebreak_b') {
+        const sliceDuration = effectiveDuration / 16;
+
+        stutterTimeout = setTimeout(() => {
+          if (!isStutterActive) return;
+
+          drumLoopGain.gain.cancelScheduledValues(audioCtx.currentTime);
+          drumLoopGain.gain.setValueAtTime(0, audioCtx.currentTime);
+
+          function playRandomCaosStep() {
+            if (!isStutterActive) return;
+
+            const randomSliceIndex = Math.floor(Math.random() * 16);
+            const sliceStartTime = loopPoints.start + (randomSliceIndex * sliceDuration);
+
+            const sliceSource = audioCtx.createBufferSource();
+            sliceSource.buffer = buffer;
+
+            const sliceGain = audioCtx.createGain();
+            sliceGain.gain.setValueAtTime(0.85, audioCtx.currentTime);
+
+            sliceSource.connect(sliceGain);
+            sliceGain.connect(masterFilter);
+
+            sliceSource.start(audioCtx.currentTime, sliceStartTime, sliceDuration * 1.05);
+
+            currentStutterSource = sliceSource;
+          }
+
+          playRandomCaosStep();
+          stutterInterval = setInterval(playRandomCaosStep, sliceDuration * 1000);
+        }, initialDelay);
+      }
     }
 
     function stopStutter() {
@@ -600,7 +679,32 @@
       }
     }
 
-    // EVENTOS TÁCTILES
+    // BOTÓN MUTE LÓGICA
+    const muteBtn = document.getElementById('muteBtn');
+    const statusIndicator = document.getElementById('statusIndicator');
+
+    muteBtn.addEventListener('click', () => {
+      if (!audioCtx || !masterGain) return;
+      isMuted = !isMuted;
+
+      if (isMuted) {
+        masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
+        masterGain.gain.setValueAtTime(0, audioCtx.currentTime);
+        muteBtn.classList.add('muted');
+        muteBtn.textContent = 'MUTED';
+        statusIndicator.style.color = '#ff0055';
+        statusIndicator.textContent = 'x MUTED';
+      } else {
+        masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
+        masterGain.gain.setValueAtTime(0.75, audioCtx.currentTime);
+        muteBtn.classList.remove('muted');
+        muteBtn.textContent = 'MUTE';
+        statusIndicator.style.color = '#00ff66';
+        statusIndicator.textContent = '● DRUM LOOP ACTIVE';
+      }
+    });
+
+    // EVENTOS TÁCTILES Y ARRASTRE
     const playBtn = document.getElementById('playBtn');
     const startScreen = document.getElementById('startScreen');
     const app = document.getElementById('app');
@@ -611,6 +715,10 @@
       await initSystem();
     });
 
+    let isDraggingFX = false;
+    let startX = 0;
+    let startY = 0;
+
     document.querySelectorAll('.pad').forEach((pad, index) => {
       const padId = `pad_${index}`;
       const soundKey = pad.dataset.sound;
@@ -620,24 +728,40 @@
         e.preventDefault();
         pad.classList.add('active');
 
+        startX = e.clientX;
+        startY = e.clientY;
+        isDraggingFX = false;
+
+        resetMasterFilter();
+
         if (soundKey) {
           startPadSound(padId, soundKey);
         } else if (stutterType) {
           startStutter(stutterType);
         }
-
-        calculateXY(e, pad);
       });
 
       pad.addEventListener('pointermove', (e) => {
-        if (pad.classList.contains('active')) {
-          calculateXY(e, pad);
+        if (!pad.classList.contains('active')) return;
+
+        const distance = Math.hypot(e.clientX - startX, e.clientY - startY);
+        if (distance > 12) {
+          isDraggingFX = true;
+        }
+
+        if (isDraggingFX) {
+          const xPercent = Math.max(0, Math.min(e.clientX / window.innerWidth, 1));
+          const yPercent = Math.max(0, Math.min(e.clientY / window.innerHeight, 1));
+
+          updateMasterXY(xPercent, yPercent);
         }
       });
 
       const endHandler = (e) => {
         pad.classList.remove('active');
+        isDraggingFX = false;
         resetMasterFilter();
+
         if (stutterType) {
           stopStutter();
         }
@@ -647,17 +771,6 @@
       pad.addEventListener('pointerleave', endHandler);
       pad.addEventListener('pointercancel', endHandler);
     });
-
-    function calculateXY(e, padElement) {
-      const rect = padElement.getBoundingClientRect();
-      const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
-      const y = Math.max(0, Math.min(e.clientY - rect.top, rect.height));
-
-      const xPercent = x / rect.width;
-      const yPercent = y / rect.height;
-
-      updateMasterXY(xPercent, yPercent);
-    }
   </script>
 </body>
 </html>
