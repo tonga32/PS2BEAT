@@ -197,20 +197,20 @@
 
     <div class="pad-grid">
       <!-- 9 SAMPLES PRINCIPALES -->
-      <div class="pad" data-sound="sample1"><span>SMP 01</span><div class="indicator">XY FILTER</div></div>
-      <div class="pad" data-sound="sample2"><span>SMP 02</span><div class="indicator">XY FILTER</div></div>
-      <div class="pad" data-sound="sample3"><span>SMP 03</span><div class="indicator">XY FILTER</div></div>
-      <div class="pad" data-sound="sample4"><span>SMP 04</span><div class="indicator">XY FILTER</div></div>
-      <div class="pad" data-sound="sample5"><span>SMP 05</span><div class="indicator">XY FILTER</div></div>
-      <div class="pad" data-sound="sample6"><span>SMP 06</span><div class="indicator">XY FILTER</div></div>
-      <div class="pad" data-sound="sample7"><span>SMP 07</span><div class="indicator">XY FILTER</div></div>
-      <div class="pad" data-sound="sample8"><span>SMP 08</span><div class="indicator">XY FILTER</div></div>
-      <div class="pad" data-sound="sample9"><span>SMP 09</span><div class="indicator">XY FILTER</div></div>
+      <div class="pad" data-sound="sample1"><span>SMP 01</span><div class="indicator">2 BARS LOOP</div></div>
+      <div class="pad" data-sound="sample2"><span>SMP 02</span><div class="indicator">2 BARS LOOP</div></div>
+      <div class="pad" data-sound="sample3"><span>SMP 03</span><div class="indicator">2 BARS LOOP</div></div>
+      <div class="pad" data-sound="sample4"><span>SMP 04</span><div class="indicator">2 BARS LOOP</div></div>
+      <div class="pad" data-sound="sample5"><span>SMP 05</span><div class="indicator">2 BARS LOOP</div></div>
+      <div class="pad" data-sound="sample6"><span>SMP 06</span><div class="indicator">2 BARS LOOP</div></div>
+      <div class="pad" data-sound="sample7"><span>SMP 07</span><div class="indicator">2 BARS LOOP</div></div>
+      <div class="pad" data-sound="sample8"><span>SMP 08</span><div class="indicator">2 BARS LOOP</div></div>
+      <div class="pad" data-sound="sample9"><span>SMP 09</span><div class="indicator">2 BARS LOOP</div></div>
 
-      <!-- 3 PADS GROSS BEAT (TIME & PATTERN SLICING) -->
-      <div class="pad glitch-pad" data-stutter="juggle"><span>BEAT JUGGLE</span><div class="indicator">GROSS BEAT</div></div>
-      <div class="pad glitch-pad" data-stutter="rebreak"><span>RE-BREAK</span><div class="indicator">JUNGLE SEQ</div></div>
-      <div class="pad glitch-pad" data-stutter="scratch"><span>TAPE STOP</span><div class="indicator">VINYL BRAKE</div></div>
+      <!-- 3 PADS GROSS BEAT SINCRO -->
+      <div class="pad glitch-pad" data-stutter="juggle"><span>BEAT 3&4 LOOP</span><div class="indicator">BEAT JUGGLE</div></div>
+      <div class="pad glitch-pad" data-stutter="rebreak"><span>SYNC RE-BREAK</span><div class="indicator">GROSS BEAT</div></div>
+      <div class="pad glitch-pad" data-stutter="scratch"><span>SLOW TAPE STOP</span><div class="indicator">VINYL BRAKE</div></div>
     </div>
   </div>
 
@@ -277,7 +277,6 @@
     async function initSystem() {
       audioCtx = new AudioContext();
 
-      // COMPRESOR / LIMITADOR MASTER
       masterCompressor = audioCtx.createDynamicsCompressor();
       masterCompressor.threshold.setValueAtTime(-10, audioCtx.currentTime);
       masterCompressor.knee.setValueAtTime(25, audioCtx.currentTime);
@@ -319,6 +318,27 @@
       drumLoopSource.start(0, points.start);
     }
 
+    function getNextQuantizedTime(gridFraction = 16) {
+      if (!audioBuffers['loop']) return audioCtx.currentTime;
+
+      const loopBuf = audioBuffers['loop'];
+      const points = getUnpaddedLoopPoints(loopBuf);
+      const effectiveDuration = points.end - points.start;
+      const stepDuration = effectiveDuration / gridFraction;
+
+      const elapsed = audioCtx.currentTime - loopStartTime;
+      const currentStep = elapsed / stepDuration;
+      let nextStepIndex = Math.ceil(currentStep);
+
+      let targetTime = loopStartTime + (nextStepIndex * stepDuration);
+
+      if (targetTime - audioCtx.currentTime < 0.01) {
+        targetTime += stepDuration;
+      }
+
+      return targetTime;
+    }
+
     function makeDistortionCurve(amount) {
       if (amount <= 0) return null;
       const k = amount;
@@ -332,24 +352,26 @@
       return curve;
     }
 
-    // PADS CON FILTRO Y SATURACIÓN
+    // PADS: REPRODUCCIÓN AUTOMÁTICA DE 2 COMPASES COMPLETOS
     const activePadNodes = {};
 
     function startPadSound(padId, soundKey) {
       if (!audioBuffers[soundKey]) return;
 
-      stopPadSound(padId);
+      // Si ya estaba sonando este pad, detenemos la instancia previa para reiniciar
+      stopPadSound(padId, true);
 
       const source = audioCtx.createBufferSource();
       source.buffer = audioBuffers[soundKey];
-      source.loop = true;
+      source.loop = true; // Permite sonar los 2 compases sin cortarse
 
       const padGain = audioCtx.createGain();
-      padGain.gain.setValueAtTime(0.7, audioCtx.currentTime);
+      padGain.gain.setValueAtTime(0.75, audioCtx.currentTime);
 
       const filter = audioCtx.createBiquadFilter();
       filter.type = 'lowpass';
       filter.frequency.setValueAtTime(20000, audioCtx.currentTime);
+      filter.Q.setValueAtTime(1, audioCtx.currentTime);
 
       const distortion = audioCtx.createWaveShaper();
 
@@ -358,16 +380,34 @@
       filter.connect(distortion);
       distortion.connect(masterGain);
 
-      source.start(0);
+      const startTime = getNextQuantizedTime(16);
 
-      activePadNodes[padId] = { source, filter, distortion, padGain };
+      // Calcular la duración exacta de 2 compases del loop principal
+      let twoBarsDuration = 4.0;
+      if (audioBuffers['loop']) {
+        const loopPoints = getUnpaddedLoopPoints(audioBuffers['loop']);
+        twoBarsDuration = (loopPoints.end - loopPoints.start) * 2;
+      }
+
+      const stopTime = startTime + twoBarsDuration;
+
+      // Programar inicio y fin automático exacto a los 2 compases
+      source.start(startTime);
+      padGain.gain.setValueAtTime(0.75, stopTime - 0.05);
+      padGain.gain.exponentialRampToValueAtTime(0.0001, stopTime);
+      source.stop(stopTime);
+
+      const timeoutId = setTimeout(() => {
+        delete activePadNodes[padId];
+      }, Math.max(0, (stopTime - audioCtx.currentTime) * 1000));
+
+      activePadNodes[padId] = { source, filter, distortion, padGain, timeoutId };
     }
 
     function updatePadXY(padId, xPercent, yPercent) {
       const nodes = activePadNodes[padId];
       if (!nodes) return;
 
-      // EJE Y: Filtro Borde a Borde
       if (yPercent < 0.48) {
         nodes.filter.type = 'highpass';
         const factor = (0.48 - yPercent) / 0.48;
@@ -386,23 +426,39 @@
         nodes.filter.Q.setTargetAtTime(1, audioCtx.currentTime, 0.015);
       }
 
-      // EJE X: Saturación Suave
       const distAmount = Math.pow(xPercent, 2) * 60;
       nodes.distortion.curve = makeDistortionCurve(distAmount);
     }
 
-    function stopPadSound(padId) {
+    function stopPadSound(padId, immediate = false) {
       if (activePadNodes[padId]) {
+        const { source, padGain, timeoutId } = activePadNodes[padId];
+        if (timeoutId) clearTimeout(timeoutId);
+
+        if (immediate) {
+          try {
+            source.stop();
+            source.disconnect();
+          } catch (e) {}
+          delete activePadNodes[padId];
+        }
+      }
+    }
+
+    function resetPadFilterToClean(padId) {
+      if (activePadNodes[padId]) {
+        const { filter, distortion } = activePadNodes[padId];
         try {
-          activePadNodes[padId].source.stop();
-          activePadNodes[padId].source.disconnect();
-        } catch (e) {}
-        delete activePadNodes[padId];
+          filter.type = 'lowpass';
+          filter.frequency.setTargetAtTime(20000, audioCtx.currentTime, 0.1);
+          filter.Q.setTargetAtTime(1, audioCtx.currentTime, 0.1);
+          if (distortion) distortion.curve = null;
+        } catch(e) {}
       }
     }
 
     // -------------------------------------------------------------
-    // EFECTOS GROSS BEAT PATTERN SEQUENCER
+    // EFECTOS GROSS BEAT SINCRONIZADOS AL TEMPO
     // -------------------------------------------------------------
     let currentStutterSource = null;
     let stutterInterval = null;
@@ -411,14 +467,12 @@
       if (!drumLoopSource || !audioBuffers['loop']) return;
       stopStutter();
 
-      // Silencia el loop principal
       drumLoopGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.005);
 
       const buffer = audioBuffers['loop'];
       const loopPoints = getUnpaddedLoopPoints(buffer);
       const effectiveDuration = loopPoints.end - loopPoints.start;
 
-      // 1. Efecto Tape Stop / Vinyl Brake
       if (type === 'scratch') {
         const elapsed = audioCtx.currentTime - loopStartTime;
         const currentPos = loopPoints.start + (elapsed % effectiveDuration);
@@ -431,28 +485,26 @@
 
         currentStutterSource.connect(stutterGain);
         stutterGain.connect(masterGain);
-        currentStutterSource.start(0, currentPos);
 
-        currentStutterSource.playbackRate.setValueAtTime(1.0, audioCtx.currentTime);
-        currentStutterSource.playbackRate.exponentialRampToValueAtTime(0.02, audioCtx.currentTime + 0.38);
+        const startTime = getNextQuantizedTime(16);
+        currentStutterSource.start(startTime, currentPos);
+
+        currentStutterSource.playbackRate.setValueAtTime(1.0, startTime);
+        currentStutterSource.playbackRate.exponentialRampToValueAtTime(0.01, startTime + 1.1);
         return;
       }
 
-      // 2. Patrones de Secuencia Gross Beat (16 divisiones del compás)
-      // Mapea los fragmentos (0 al 15) que debe tocar en secuencia rítmica
       const sliceDuration = effectiveDuration / 16;
-      
-      const patternSeq = type === 'juggle'
-        // BEAT JUGGLE: Repite rítmicamente fragmentos del inicio y el medio
-        ? [0, 1, 0, 1, 4, 5, 4, 5, 8, 9, 8, 9, 12, 13, 14, 15]
-        // JUNGLE RE-BREAK: Saltos y re-cortes dinámicos
-        : [0, 0, 2, 3, 8, 8, 10, 11, 4, 4, 12, 13, 14, 14, 15, 15];
+      const jugglePattern = [8, 9, 10, 11, 12, 13, 14, 15];
+      const rebreakPattern = [0, 2, 4, 6, 8, 8, 10, 12, 14, 14, 12, 10, 8, 6, 4, 2];
+
+      const patternSeq = (type === 'juggle') ? jugglePattern : rebreakPattern;
 
       const elapsed = audioCtx.currentTime - loopStartTime;
-      let stepIndex = Math.floor((elapsed % effectiveDuration) / sliceDuration) % 16;
+      let stepIndex = Math.floor((elapsed % effectiveDuration) / sliceDuration) % patternSeq.length;
 
       function playPatternStep() {
-        const sliceIndex = patternSeq[stepIndex % 16];
+        const sliceIndex = patternSeq[stepIndex % patternSeq.length];
         const sliceStartTime = loopPoints.start + (sliceIndex * sliceDuration);
 
         const sliceSource = audioCtx.createBufferSource();
@@ -464,15 +516,19 @@
         sliceSource.connect(sliceGain);
         sliceGain.connect(masterGain);
 
-        // Reproduce el trozo exacto del compás
-        sliceSource.start(0, sliceStartTime, sliceDuration * 1.05);
+        sliceSource.start(audioCtx.currentTime, sliceStartTime, sliceDuration * 1.05);
 
         currentStutterSource = sliceSource;
-        stepIndex = (stepIndex + 1) % 16;
+        stepIndex = (stepIndex + 1) % patternSeq.length;
       }
 
-      playPatternStep();
-      stutterInterval = setInterval(playPatternStep, sliceDuration * 1000);
+      const startTime = getNextQuantizedTime(16);
+      const initialDelay = Math.max(0, (startTime - audioCtx.currentTime) * 1000);
+
+      setTimeout(() => {
+        playPatternStep();
+        stutterInterval = setInterval(playPatternStep, sliceDuration * 1000);
+      }, initialDelay);
     }
 
     function stopStutter() {
@@ -492,7 +548,7 @@
       }
     }
 
-    // EVENTOS
+    // EVENTOS TÁCTILES
     const playBtn = document.getElementById('playBtn');
     const startScreen = document.getElementById('startScreen');
     const app = document.getElementById('app');
@@ -514,7 +570,6 @@
 
         if (soundKey) {
           startPadSound(padId, soundKey);
-          calculateXY(e, pad, padId);
         } else if (stutterType) {
           startStutter(stutterType);
         }
@@ -528,8 +583,13 @@
 
       const endHandler = (e) => {
         pad.classList.remove('active');
-        if (soundKey) stopPadSound(padId);
-        if (stutterType) stopStutter();
+        if (soundKey) {
+          // Al soltar, no corta el audio, solo restaura el filtro a estado limpio
+          resetPadFilterToClean(padId);
+        }
+        if (stutterType) {
+          stopStutter();
+        }
       };
 
       pad.addEventListener('pointerup', endHandler);
