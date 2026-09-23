@@ -236,7 +236,7 @@
 
       <!-- 3 PADS GROSS BEAT / FX -->
       <div class="pad glitch-pad" data-stutter="rebreak_a"><span>RE-BREAK A</span><div class="indicator">1/32 STUTTER</div></div>
-      <div class="pad glitch-pad" data-stutter="rebreak_b"><span>RE-BREAK B</span><div class="indicator">SNARE SLICE</div></div>
+      <div class="pad glitch-pad" data-stutter="rebreak_b"><span>RE-BREAK B</span><div class="indicator">1/16, 1/8, 1/4</div></div>
       <div class="pad glitch-pad" data-stutter="scratch"><span>SLOW TAPE STOP</span><div class="indicator">VINYL BRAKE</div></div>
     </div>
   </div>
@@ -249,7 +249,6 @@
     let drumLoopSource = null;
     let drumLoopGain = null;
     let loopStartTime = 0;
-    let detectedSnares = []; // Puntos detectados de redoblantes/cajas
 
     // AUDIO NODES MASTER & FX
     let masterGain = null;
@@ -302,51 +301,6 @@
       return { start, end };
     }
 
-    // ANÁLISIS AUTOMÁTICO DE CAJAS/REDOBLANTES
-    function analyzeSnares(buffer) {
-      const channel = buffer.getChannelData(0);
-      const points = getUnpaddedLoopPoints(buffer);
-      const sampleRate = buffer.sampleRate;
-      
-      const startIndex = Math.floor(points.start * sampleRate);
-      const endIndex = Math.floor(points.end * sampleRate);
-      
-      const windowSize = Math.floor(sampleRate * 0.015); // ventanas de 15ms
-      const peaks = [];
-
-      for (let i = startIndex; i < endIndex; i += windowSize) {
-        let sum = 0;
-        let count = 0;
-        for (let j = 0; j < windowSize && (i + j) < endIndex; j++) {
-          sum += Math.abs(channel[i + j]);
-          count++;
-        }
-        const avg = sum / count;
-        peaks.push({ time: i / sampleRate, energy: avg });
-      }
-
-      // Ordenamos por energía descendente para aislar los golpes más fuertes (redoblantes/kicks principales)
-      peaks.sort((a, b) => b.energy - a.energy);
-
-      detectedSnares = [];
-      const minDistance = 0.08; // evitar puntos demasiado juntos
-
-      for (const p of peaks) {
-        if (detectedSnares.length >= 8) break;
-        if (detectedSnares.every(existing => Math.abs(existing - p.time) > minDistance)) {
-          detectedSnares.push(p.time);
-        }
-      }
-
-      // Si no encontró suficientes, rellenamos con divisiones rítmicas
-      if (detectedSnares.length < 4) {
-        const dur = points.end - points.start;
-        for (let k = 0; k < 8; k++) {
-          detectedSnares.push(points.start + (k * (dur / 8)));
-        }
-      }
-    }
-
     function createReverbImpulse(ctx, duration = 1.2, decay = 2.5) {
       const sampleRate = ctx.sampleRate;
       const length = sampleRate * duration;
@@ -389,11 +343,7 @@
       try {
         const response = await fetch(url);
         const arrayBuffer = await response.arrayBuffer();
-        const decoded = await audioCtx.decodeAudioData(arrayBuffer);
-        audioBuffers[key] = decoded;
-        if (key === 'loop') {
-          analyzeSnares(decoded);
-        }
+        audioBuffers[key] = await audioCtx.decodeAudioData(arrayBuffer);
       } catch (err) {
         console.error(`Error cargando ${key}:`, err);
       }
@@ -457,7 +407,8 @@
       drumLoopSource.loopEnd = points.end;
 
       drumLoopGain = audioCtx.createGain();
-      drumLoopGain.gain.setValueAtTime(0.85, audioCtx.currentTime);
+      // VOLUMEN DEL LOOP SUBIDO (Pasó de 0.85 a 1.15)
+      drumLoopGain.gain.setValueAtTime(1.15, audioCtx.currentTime);
 
       drumLoopSource.connect(drumLoopGain);
       drumLoopGain.connect(masterFilter);
@@ -538,14 +489,17 @@
     }
 
     // ---------------------------------------------
-    // GESTIÓN DE PADS (CORRECTO HOLD VS TAP)
+    // GESTIÓN DE PADS (RE-TRIGGER INSTANTÁNEO AL RETOCAR)
     // ---------------------------------------------
     const activePadNodes = {};
 
     function startPadSound(padId, soundKey) {
       if (!audioBuffers[soundKey]) return;
 
-      stopPadSound(padId, true);
+      // Si ya estaba sonando este mismo pad, lo cortamos inmediatamente antes de iniciar el nuevo golpe
+      if (activePadNodes[padId]) {
+        executeStop(padId, true);
+      }
 
       const source = audioCtx.createBufferSource();
       source.buffer = audioBuffers[soundKey];
@@ -590,11 +544,10 @@
     function stopPadSound(padId) {
       if (!activePadNodes[padId]) return;
       const nodeData = activePadNodes[padId];
-      const { source, padGain, isHeld, isEighth } = nodeData;
+      const { isHeld, isEighth } = nodeData;
 
-      // Si se mantuvo apretado, cortamos al soltar. Si fue toque rápido, respetamos su duración (1/16 u 1/8)
       if (isHeld) {
-        executeStop(padId);
+        executeStop(padId, false);
       } else {
         const loopBuf = audioBuffers['loop'];
         const points = getUnpaddedLoopPoints(loopBuf);
@@ -606,25 +559,32 @@
 
         setTimeout(() => {
           if (activePadNodes[padId] && !activePadNodes[padId].isHeld) {
-            executeStop(padId);
+            executeStop(padId, false);
           }
         }, remainingTime * 1000);
       }
     }
 
-    function executeStop(padId) {
+    function executeStop(padId, immediate = false) {
       if (!activePadNodes[padId]) return;
       const { source, padGain } = activePadNodes[padId];
       delete activePadNodes[padId];
 
       const now = audioCtx.currentTime;
-      try {
-        padGain.gain.cancelScheduledValues(now);
-        padGain.gain.setValueAtTime(Math.max(0.0001, padGain.gain.value), now);
-        padGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.03);
-        source.stop(now + 0.035);
-      } catch (e) {
-        try { source.stop(); } catch(err) {}
+      if (immediate) {
+        try {
+          source.stop();
+          source.disconnect();
+        } catch (e) {}
+      } else {
+        try {
+          padGain.gain.cancelScheduledValues(now);
+          padGain.gain.setValueAtTime(Math.max(0.0001, padGain.gain.value), now);
+          padGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.03);
+          source.stop(now + 0.035);
+        } catch (e) {
+          try { source.stop(); } catch(err) {}
+        }
       }
     }
 
@@ -668,7 +628,7 @@
           currentStutterSource.buffer = buffer;
 
           const stutterGain = audioCtx.createGain();
-          stutterGain.gain.setValueAtTime(0.85, audioCtx.currentTime);
+          stutterGain.gain.setValueAtTime(1.15, audioCtx.currentTime);
 
           currentStutterSource.connect(stutterGain);
           stutterGain.connect(masterFilter);
@@ -703,7 +663,7 @@
           currentStutterSource.loopEnd = sliceStart + slice32Duration;
 
           const stutterGain = audioCtx.createGain();
-          stutterGain.gain.setValueAtTime(0.85, audioCtx.currentTime);
+          stutterGain.gain.setValueAtTime(1.15, audioCtx.currentTime);
 
           currentStutterSource.connect(stutterGain);
           stutterGain.connect(masterFilter);
@@ -714,37 +674,41 @@
       }
 
       if (type === 'rebreak_b') {
-        // RE-BREAK B INTELIGENTE: Microcortes directamente sobre los puntos de redoblantes/cajas detectados
+        // RE-BREAK B: Microcortes dinámicos en 1/16, 1/8 y 1/4
         stutterTimeout = setTimeout(() => {
           if (!isStutterActive) return;
 
           drumLoopGain.gain.cancelScheduledValues(audioCtx.currentTime);
           drumLoopGain.gain.setValueAtTime(0, audioCtx.currentTime);
 
-          function playSnareSliceStep() {
+          function playDynamicMicroCuts() {
             if (!isStutterActive) return;
 
-            // Elegimos aleatoriamente uno de los puntos donde suena el redoblante
-            const randomSnareTime = detectedSnares[Math.floor(Math.random() * detectedSnares.length)];
-            const sliceDuration = 0.075; // 75ms de microcorte punzante en la caja
+            // Divisiones para 1/4 (4), 1/8 (8) y 1/16 (16)
+            const divisionsArr = [4, 8, 16];
+            const divisions = divisionsArr[Math.floor(Math.random() * divisionsArr.length)];
+            const sliceDuration = effectiveDuration / divisions;
+
+            const randomIndex = Math.floor(Math.random() * divisions);
+            const sliceStart = loopPoints.start + (randomIndex * sliceDuration);
 
             const sliceSource = audioCtx.createBufferSource();
             sliceSource.buffer = buffer;
 
             const sliceGain = audioCtx.createGain();
-            sliceGain.gain.setValueAtTime(0.85, audioCtx.currentTime);
+            sliceGain.gain.setValueAtTime(1.15, audioCtx.currentTime);
 
             sliceSource.connect(sliceGain);
             sliceGain.connect(masterFilter);
 
-            sliceSource.start(audioCtx.currentTime, randomSnareTime, sliceDuration * 1.1);
+            sliceSource.start(audioCtx.currentTime, sliceStart, sliceDuration * 1.05);
 
             currentStutterSource = sliceSource;
 
-            stutterTimeout = setTimeout(playSnareSliceStep, sliceDuration * 1000);
+            stutterTimeout = setTimeout(playDynamicMicroCuts, sliceDuration * 1000);
           }
 
-          playSnareSliceStep();
+          playDynamicMicroCuts();
         }, initialDelay);
       }
     }
@@ -766,7 +730,7 @@
 
       if (drumLoopGain && audioCtx) {
         drumLoopGain.gain.cancelScheduledValues(audioCtx.currentTime);
-        drumLoopGain.gain.setValueAtTime(0.85, audioCtx.currentTime);
+        drumLoopGain.gain.setValueAtTime(1.15, audioCtx.currentTime);
       }
     }
 
