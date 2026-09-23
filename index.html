@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1">
+  <title>PS2 Jungle DrumPad</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&display=swap');
+
+    * {
+      box-sizing: border-box;
+      touch-action: none;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #050814;
+      color: #00f0ff;
+      font-family: 'Chakra Petch', sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+    }
+
+    /* PANTALLA DE INICIO (OVERLAY PLAY) */
+    #startScreen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: radial-gradient(circle, #101835 0%, #03050d 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+      text-shadow: 0 0 10px #00f0ff;
+    }
+
+    #startScreen h1 {
+      font-size: 2.2rem;
+      letter-spacing: 3px;
+      margin-bottom: 5px;
+      color: #ffffff;
+      text-transform: uppercase;
+    }
+
+    #startScreen p {
+      font-size: 0.9rem;
+      color: #7080b0;
+      margin-bottom: 30px;
+    }
+
+    .play-btn {
+      background: linear-gradient(135deg, #00f0ff, #7000ff);
+      border: 2px solid #ffffff;
+      border-radius: 50px;
+      color: #ffffff;
+      padding: 18px 45px;
+      font-size: 1.5rem;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.6);
+      cursor: pointer;
+    }
+
+    .play-btn:active {
+      transform: scale(0.95);
+    }
+
+    /* CONTENEDOR PRINCIPAL PS2 */
+    #app {
+      display: none;
+      width: 100%;
+      max-width: 420px;
+      height: 100vh;
+      padding: 15px;
+      flex-direction: column;
+      justify-content: space-between;
+      background: linear-gradient(180deg, #0c1026 0%, #050714 100%);
+      box-shadow: inset 0 0 15px rgba(0, 240, 255, 0.2);
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background: rgba(0, 240, 255, 0.05);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      border-radius: 6px;
+    }
+
+    .header .logo {
+      font-weight: 700;
+      font-size: 1.1rem;
+      letter-spacing: 1.5px;
+      color: #ffffff;
+    }
+
+    .header .status {
+      font-size: 0.75rem;
+      color: #00ff66;
+      text-shadow: 0 0 5px #00ff66;
+    }
+
+    /* GRID DE 12 PADS (3x4) */
+    .pad-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(4, 1fr);
+      gap: 10px;
+      flex-grow: 1;
+      margin-top: 15px;
+    }
+
+    .pad {
+      background: linear-gradient(145deg, #161d3a, #0b0f24);
+      border: 1.5px solid #2a386e;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: #a0b0e0;
+      font-size: 0.85rem;
+      font-weight: bold;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+    }
+
+    .pad.active {
+      border-color: #00f0ff;
+      box-shadow: 0 0 15px #00f0ff;
+      background: #1a295c;
+      color: #ffffff;
+    }
+
+    .pad.glitch-pad {
+      background: linear-gradient(145deg, #3a1628, #240b17);
+      border-color: #ff0055;
+      color: #ffa0c0;
+    }
+
+    .pad.glitch-pad.active {
+      border-color: #ff0055;
+      box-shadow: 0 0 15px #ff0055;
+      background: #5c1a3a;
+      color: #ffffff;
+    }
+
+    .pad span {
+      pointer-events: none;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+    }
+
+    .pad .indicator {
+      position: absolute;
+      bottom: 4px;
+      font-size: 0.55rem;
+      color: #00f0ff;
+      opacity: 0.7;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- PANTALLA DE INICIO CON BOTÓN PLAY -->
+  <div id="startScreen">
+    <h1>PS2 JUNGLE PAD</h1>
+    <p>TAP TO START SOUND SYSTEM</p>
+    <button class="play-btn" id="playBtn">PLAY</button>
+  </div>
+
+  <!-- INTERFAZ PRINCIPAL -->
+  <div id="app">
+    <div class="header">
+      <div class="logo">PS2 // BREAKS</div>
+      <div class="status">● DRUM LOOP ACTIVE</div>
+    </div>
+
+    <div class="pad-grid">
+      <!-- 9 SAMPLES PRINCIPALES -->
+      <div class="pad" data-sound="sample1"><span>SMP 01</span><div class="indicator">FILTER / DIST</div></div>
+      <div class="pad" data-sound="sample2"><span>SMP 02</span><div class="indicator">FILTER / DIST</div></div>
+      <div class="pad" data-sound="sample3"><span>SMP 03</span><div class="indicator">FILTER / DIST</div></div>
+      <div class="pad" data-sound="sample4"><span>SMP 04</span><div class="indicator">FILTER / DIST</div></div>
+      <div class="pad" data-sound="sample5"><span>SMP 05</span><div class="indicator">FILTER / DIST</div></div>
+      <div class="pad" data-sound="sample6"><span>SMP 06</span><div class="indicator">FILTER / DIST</div></div>
+      <div class="pad" data-sound="sample7"><span>SMP 07</span><div class="indicator">FILTER / DIST</div></div>
+      <div class="pad" data-sound="sample8"><span>SMP 08</span><div class="indicator">FILTER / DIST</div></div>
+      <div class="pad" data-sound="sample9"><span>SMP 09</span><div class="indicator">FILTER / DIST</div></div>
+
+      <!-- 3 PADS DE EFECTO STUTTER / GLITCH -->
+      <div class="pad glitch-pad" data-stutter="16"><span>STUTTER 1/16</span><div class="indicator">GLITCH</div></div>
+      <div class="pad glitch-pad" data-stutter="32"><span>STUTTER 1/32</span><div class="indicator">FAST</div></div>
+      <div class="pad glitch-pad" data-stutter="8"><span>TRIPLE SHOT</span><div class="indicator">BURST</div></div>
+    </div>
+  </div>
+
+  <script>
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    let audioCtx;
+
+    const audioBuffers = {};
+    let drumLoopSource = null;
+
+    // Archivos alojados en la carpeta sonidos/ de tu repositorio
+    const soundFiles = {
+      loop: './sonidos/ps2-drumbeat.mp3',
+      sample1: './sonidos/sample1.mp3',
+      sample2: './sonidos/sample2.mp3',
+      sample3: './sonidos/sample3.mp3',
+      sample4: './sonidos/sample4.mp3',
+      sample5: './sonidos/sample5.mp3',
+      sample6: './sonidos/sample6.mp3',
+      sample7: './sonidos/sample7.mp3',
+      sample8: './sonidos/sample8.mp3',
+      sample9: './sonidos/sample9.mp3',
+    };
+
+    async function loadAudio(key, url) {
+      try {
+        const response = await fetch(url);
+        const arrayBuffer = await response.arrayBuffer();
+        audioBuffers[key] = await audioCtx.decodeAudioData(arrayBuffer);
+      } catch (err) {
+        console.error(`Error cargando ${key}:`, err);
+      }
+    }
+
+    async function initSystem() {
+      audioCtx = new AudioContext();
+      const promises = Object.keys(soundFiles).map(key => loadAudio(key, soundFiles[key]));
+      await Promise.all(promises);
+      playDrumLoop();
+    }
+
+    function playDrumLoop() {
+      if (!audioBuffers['loop']) return;
+      drumLoopSource = audioCtx.createBufferSource();
+      drumLoopSource.buffer = audioBuffers['loop'];
+      drumLoopSource.loop = true;
+      drumLoopSource.connect(audioCtx.destination);
+      drumLoopSource.start(0);
+    }
+
+    // Curva matemática para el efecto de distorsión (WaveShaper)
+    function makeDistortionCurve(amount) {
+      const k = typeof amount === 'number' ? amount : 50;
+      const n_samples = 44100;
+      const curve = new Float32Array(n_samples);
+      const deg = Math.PI / 180;
+      for (let i = 0; i < n_samples; ++i) {
+        const x = (i * 2) / n_samples - 1;
+        curve[i] = ((3 + k) * x * 20 * deg) / (Math.PI + k * Math.abs(x));
+      }
+      return curve;
+    }
+
+    // -------------------------------------------------------------
+    // PADS CON FILTRO (EJE Y) Y DISTORSIÓN (EJE X)
+    // -------------------------------------------------------------
+    const activePadNodes = {};
+
+    function startPadSound(padId, soundKey) {
+      if (!audioBuffers[soundKey]) return;
+
+      stopPadSound(padId);
+
+      const source = audioCtx.createBufferSource();
+      source.buffer = audioBuffers[soundKey];
+      source.loop = true;
+
+      // Filtro Biquad (Eje Y)
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 20000;
+
+      // Distorsión / Bitcrusher (Eje X)
+      const distortion = audioCtx.createWaveShaper();
+      distortion.curve = makeDistortionCurve(0); // Inicia limpio
+      distortion.oversample = '4x';
+
+      // Conexión: Fuente -> Filtro -> Distorsión -> Parlantes
+      source.connect(filter);
+      filter.connect(distortion);
+      distortion.connect(audioCtx.destination);
+
+      source.start(0);
+
+      activePadNodes[padId] = { source, filter, distortion };
+    }
+
+    function updatePadXY(padId, xPercent, yPercent) {
+      const nodes = activePadNodes[padId];
+      if (!nodes) return;
+
+      // EJE Y: Filtro de Frecuencia
+      // Arriba = High-Pass (Agudos) | Abajo = Low-Pass (Graves)
+      if (yPercent < 0.5) {
+        nodes.filter.type = 'highpass';
+        nodes.filter.frequency.setTargetAtTime((0.5 - yPercent) * 10000, audioCtx.currentTime, 0.05);
+      } else {
+        nodes.filter.type = 'lowpass';
+        nodes.filter.frequency.setTargetAtTime((1 - yPercent) * 10000 + 200, audioCtx.currentTime, 0.05);
+      }
+
+      // EJE X: Distorsión / Bitcrusher
+      // Izquierda (0) = Limpio | Derecha (1) = Distorsión saturada
+      const distortionAmount = xPercent * 300; // Intensidad de distorsión
+      nodes.distortion.curve = makeDistortionCurve(distortionAmount);
+    }
+
+    function stopPadSound(padId) {
+      if (activePadNodes[padId]) {
+        try {
+          activePadNodes[padId].source.stop();
+          activePadNodes[padId].source.disconnect();
+        } catch (e) {}
+        delete activePadNodes[padId];
+      }
+    }
+
+    // -------------------------------------------------------------
+    // STUTTER / GLITCH
+    // -------------------------------------------------------------
+    let stutterInterval = null;
+
+    function startStutter(rate) {
+      if (!drumLoopSource || !audioBuffers['loop']) return;
+      stopStutter();
+
+      const intervalTime = 1000 / rate;
+      stutterInterval = setInterval(() => {
+        const miniSource = audioCtx.createBufferSource();
+        miniSource.buffer = audioBuffers['loop'];
+        miniSource.connect(audioCtx.destination);
+        miniSource.start(0, 0, 0.08);
+      }, intervalTime);
+    }
+
+    function stopStutter() {
+      if (stutterInterval) {
+        clearInterval(stutterInterval);
+        stutterInterval = null;
+      }
+    }
+
+    // EVENTOS
+    const playBtn = document.getElementById('playBtn');
+    const startScreen = document.getElementById('startScreen');
+    const app = document.getElementById('app');
+
+    playBtn.addEventListener('click', async () => {
+      startScreen.style.display = 'none';
+      app.style.display = 'flex';
+      await initSystem();
+    });
+
+    document.querySelectorAll('.pad').forEach((pad, index) => {
+      const padId = `pad_${index}`;
+      const soundKey = pad.dataset.sound;
+      const stutterRate = pad.dataset.stutter;
+
+      pad.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        pad.classList.add('active');
+
+        if (soundKey) {
+          startPadSound(padId, soundKey);
+          calculateXY(e, pad, padId);
+        } else if (stutterRate) {
+          startStutter(parseInt(stutterRate));
+        }
+      });
+
+      pad.addEventListener('pointermove', (e) => {
+        if (pad.classList.contains('active') && soundKey) {
+          calculateXY(e, pad, padId);
+        }
+      });
+
+      const endHandler = (e) => {
+        pad.classList.remove('active');
+        if (soundKey) stopPadSound(padId);
+        if (stutterRate) stopStutter();
+      };
+
+      pad.addEventListener('pointerup', endHandler);
+      pad.addEventListener('pointercancel', endHandler);
+    });
+
+    function calculateXY(e, padElement, padId) {
+      const rect = padElement.getBoundingClientRect();
+      const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+      const y = Math.max(0, Math.min(e.clientY - rect.top, rect.height));
+
+      const xPercent = x / rect.width;
+      const yPercent = y / rect.height;
+
+      updatePadXY(padId, xPercent, yPercent);
+    }
+  </script>
+</body>
+</html>
