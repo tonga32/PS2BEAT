@@ -246,9 +246,9 @@
       <div class="pad" data-sound="sample4"><span>SMP 04</span><div class="indicator">1/8 + SUSTAIN</div></div>
       <div class="pad" data-sound="sample5"><span>SMP 05</span><div class="indicator">1/8 + SUSTAIN</div></div>
       <div class="pad" data-sound="sample6"><span>SMP 06</span><div class="indicator">1/8 + SUSTAIN</div></div>
-      <div class="pad" data-sound="sample7"><span>SMP 07</span><div class="indicator">1/16 HOLD</div></div>
+      <div class="pad" data-sound="sample7"><span>SMP 07</span><div class="indicator">1/4 CUT</div></div>
       <div class="pad" data-sound="sample8"><span>SMP 08</span><div class="indicator">1/16 HOLD</div></div>
-      <div class="pad" data-sound="sample9"><span>SMP 09</span><div class="indicator">1/16 HOLD</div></div>
+      <div class="pad" data-sound="sample9"><span>SMP 09</span><div class="indicator">1/4 CUT</div></div>
 
       <div class="pad glitch-pad" data-stutter="rebreak_a"><span>RE-BREAK A</span><div class="indicator">1/32 STUTTER</div></div>
       <div class="pad glitch-pad" data-stutter="rebreak_b"><span>RE-BREAK B</span><div class="indicator">ULTRA MICRO-CUTS</div></div>
@@ -500,7 +500,6 @@
     function updateMasterXY(xPercent, yPercent) {
       if (!masterFilter || !flangerGain || !phaserGain) return;
 
-      // Control Eje Y: Filtro paso alto / paso bajo
       if (yPercent < 0.45) {
         masterFilter.type = 'highpass';
         const factor = (0.45 - yPercent) / 0.45;
@@ -519,7 +518,6 @@
         masterFilter.Q.setTargetAtTime(1, audioCtx.currentTime, 0.015);
       }
 
-      // Control Eje X: Izquierda = Flanger | Derecha = Phaser
       if (xPercent < 0.45) {
         const flangerAmount = (0.45 - xPercent) / 0.45;
         flangerGain.gain.setTargetAtTime(flangerAmount * 0.9, audioCtx.currentTime, 0.015);
@@ -562,8 +560,9 @@
       const padGain = audioCtx.createGain();
       padGain.gain.setValueAtTime(0.8, audioCtx.currentTime);
 
-      // Definir propiedades de corte y sustain según sample solicitado
+      // Configuración de cortes y sustain
       const isEighthSound = ['sample1', 'sample2', 'sample3', 'sample4', 'sample5', 'sample6'].includes(soundKey);
+      const isQuarterSound = ['sample7', 'sample9'].includes(soundKey);
       const hasLongSustain = ['sample4', 'sample5', 'sample6'].includes(soundKey);
 
       source.loop = true;
@@ -590,6 +589,7 @@
         padGain, 
         isHeld: false, 
         isEighth: isEighthSound,
+        isQuarter: isQuarterSound,
         hasSustain: hasLongSustain,
         startTime: audioCtx.currentTime 
       };
@@ -598,7 +598,7 @@
     function stopPadSound(padId) {
       if (!activePadNodes[padId]) return;
       const nodeData = activePadNodes[padId];
-      const { isHeld, isEighth, hasSustain } = nodeData;
+      const { isHeld, isEighth, isQuarter, hasSustain } = nodeData;
 
       if (isHeld) {
         executeStop(padId, false);
@@ -606,14 +606,22 @@
         const loopBuf = audioBuffers['loop'];
         const points = getUnpaddedLoopPoints(loopBuf);
         const effectiveDuration = points.end - points.start;
-        const targetDuration = isEighth ? (effectiveDuration / 8) : (effectiveDuration / 16);
+        
+        let targetDuration;
+        if (isQuarter) {
+          targetDuration = effectiveDuration / 4; // 1/4 de tiempo para sample 7 y 9
+        } else if (isEighth) {
+          targetDuration = effectiveDuration / 8;
+        } else {
+          targetDuration = effectiveDuration / 16;
+        }
 
         const elapsed = audioCtx.currentTime - nodeData.startTime;
         const remainingTime = Math.max(0, targetDuration - (elapsed % targetDuration));
 
         setTimeout(() => {
           if (activePadNodes[padId] && !activePadNodes[padId].isHeld) {
-            executeStop(padId, hasSustain); // Si tiene sustain largo, aplicamos desvanecimiento de 2s
+            executeStop(padId, hasSustain);
           }
         }, remainingTime * 1000);
       }
@@ -625,7 +633,7 @@
       delete activePadNodes[padId];
 
       const now = audioCtx.currentTime;
-      const fadeTime = longSustain ? 2.0 : 0.03; // Sustain de 2 segundos para sample 4, 5 y 6
+      const fadeTime = longSustain ? 2.0 : 0.03;
 
       try {
         padGain.gain.cancelScheduledValues(now);
@@ -720,7 +728,6 @@
       }
 
       if (type === 'rebreak_b') {
-        // MÁS MICROORTES Y DINÁMICA DE ALTA FRECUENCIA
         stutterTimeout = setTimeout(() => {
           if (!isStutterActive) return;
 
