@@ -289,7 +289,6 @@
       <div class="pad" data-sound="sample11"><span>Chord</span></div>
       <div class="pad" data-sound="sample12"><span>Chord</span></div>
 
-      <!-- Pads de Efectos / Glitch (Última fila) -->
       <div class="pad glitch-pad" data-stutter="rebreak_a"><span>RE-BREAK A</span></div>
       <div class="pad glitch-pad" data-stutter="rebreak_b"><span>RE-BREAK B</span></div>
       <div class="pad glitch-pad" data-stutter="scratch"><span>SLOW TAPE STOP</span></div>
@@ -326,7 +325,6 @@
 
     let isMuted = false;
 
-    // AHORA EL CÓDIGO SABE QUE TU LOOP TIENE 8 BARRAS (COMPASES)
     const TOTAL_BARS = 8;
 
     const soundFiles = {
@@ -516,7 +514,6 @@
       drumLoopSource.start(0, points.start);
     }
 
-    // Calcula el tiempo quantizado asumiendo que divisionsPerBar = 16 (semicorcheas)
     function getNextQuantizedTime(divisionsPerBar = 16) {
       if (!audioBuffers['loop']) return audioCtx.currentTime;
 
@@ -524,7 +521,6 @@
       const points = getUnpaddedLoopPoints(loopBuf);
       const effectiveDuration = points.end - points.start;
       
-      // Ajuste para 8 barras: la duración de UNA barra
       const barDuration = effectiveDuration / TOTAL_BARS; 
       const stepDuration = barDuration / divisionsPerBar;
 
@@ -592,7 +588,7 @@
       if (!audioBuffers[soundKey]) return;
 
       if (activePadNodes[padId]) {
-        executeStop(padId, true);
+        executeStop(padId, 0.03);
       }
 
       const source = audioCtx.createBufferSource();
@@ -601,9 +597,19 @@
       const padGain = audioCtx.createGain();
       padGain.gain.setValueAtTime(0.8, audioCtx.currentTime);
 
-      const isEighthSound = ['sample1', 'sample2', 'sample3', 'sample4', 'sample5', 'sample6'].includes(soundKey);
-      const isQuarterSound = ['sample7', 'sample9'].includes(soundKey);
-      const hasLongSustain = ['sample4', 'sample5', 'sample6'].includes(soundKey);
+      let durationInBars = 1/16; 
+      let tailLength = 0.03;     
+
+      if (['sample1', 'sample2', 'sample3', 'sample4', 'sample5', 'sample6', 'sample9'].includes(soundKey)) {
+        durationInBars = 1;      
+        tailLength = 1.0;        
+      } else if (['sample7'].includes(soundKey)) {
+        durationInBars = 4;      
+        tailLength = 1.0;        
+      } else if (['sample8', 'sample10', 'sample11', 'sample12'].includes(soundKey)) {
+        durationInBars = 0.25;   
+        tailLength = 0.1;        
+      }
 
       source.loop = true;
 
@@ -628,9 +634,8 @@
         source, 
         padGain, 
         isHeld: false, 
-        isEighth: isEighthSound,
-        isQuarter: isQuarterSound,
-        hasSustain: hasLongSustain,
+        durationInBars: durationInBars,
+        tailLength: tailLength,
         startTime: audioCtx.currentTime 
       };
     }
@@ -638,43 +643,35 @@
     function stopPadSound(padId) {
       if (!activePadNodes[padId]) return;
       const nodeData = activePadNodes[padId];
-      const { isHeld, isEighth, isQuarter, hasSustain } = nodeData;
+      const { isHeld, durationInBars, tailLength } = nodeData;
 
       if (isHeld) {
-        executeStop(padId, false);
+        executeStop(padId, tailLength > 0.5 ? 0.3 : tailLength);
       } else {
         const loopBuf = audioBuffers['loop'];
         const points = getUnpaddedLoopPoints(loopBuf);
         const effectiveDuration = points.end - points.start;
-        const barDuration = effectiveDuration / TOTAL_BARS; // Ajustado a 8 barras
+        const barDuration = effectiveDuration / TOTAL_BARS; 
         
-        let targetDuration;
-        if (isQuarter) {
-          targetDuration = barDuration / 4;
-        } else if (isEighth) {
-          targetDuration = barDuration / 8;
-        } else {
-          targetDuration = barDuration / 16;
-        }
+        const targetDuration = barDuration * durationInBars;
 
         const elapsed = audioCtx.currentTime - nodeData.startTime;
-        const remainingTime = Math.max(0, targetDuration - (elapsed % targetDuration));
+        const remainingTime = Math.max(0, targetDuration - elapsed);
 
         setTimeout(() => {
           if (activePadNodes[padId] && !activePadNodes[padId].isHeld) {
-            executeStop(padId, hasSustain);
+            executeStop(padId, tailLength);
           }
         }, remainingTime * 1000);
       }
     }
 
-    function executeStop(padId, longSustain = false) {
+    function executeStop(padId, fadeTime = 0.03) {
       if (!activePadNodes[padId]) return;
       const { source, padGain } = activePadNodes[padId];
       delete activePadNodes[padId];
 
       const now = audioCtx.currentTime;
-      const fadeTime = longSustain ? 2.0 : 0.03;
 
       try {
         padGain.gain.cancelScheduledValues(now);
@@ -706,7 +703,6 @@
       const loopPoints = getUnpaddedLoopPoints(buffer);
       const effectiveDuration = loopPoints.end - loopPoints.start;
       
-      // Extraemos la duración de UNA barra a partir del total de 8
       const barDuration = effectiveDuration / TOTAL_BARS;
 
       const startTime = getNextQuantizedTime(16);
@@ -720,7 +716,7 @@
           drumLoopGain.gain.setValueAtTime(0, audioCtx.currentTime);
 
           const elapsed = audioCtx.currentTime - loopStartTime;
-          const currentPos = loopPoints.start + (elapsed % effectiveDuration); // Se repite por toda la duración
+          const currentPos = loopPoints.start + (elapsed % effectiveDuration); 
 
           currentStutterSource = audioCtx.createBufferSource();
           currentStutterSource.buffer = buffer;
@@ -772,7 +768,6 @@
         const slice16Duration = barDuration / 16;
         const slice32Duration = barDuration / 32;
         
-        // Ahora sí: el quinto paso (índice 4) del primer compás, independientemente de que haya 8.
         const targetSliceStart = loopPoints.start + (4 * slice16Duration);
 
         stutterTimeout = setTimeout(() => {
@@ -794,6 +789,11 @@
           stutterGain.connect(masterFilter);
 
           currentStutterSource.start(0, targetSliceStart);
+          
+          const dosTiempos = barDuration / 2; 
+          currentStutterSource.playbackRate.setValueAtTime(1.0, audioCtx.currentTime + dosTiempos);
+          currentStutterSource.playbackRate.exponentialRampToValueAtTime(0.05, audioCtx.currentTime + dosTiempos + 1.2);
+
         }, initialDelay);
       }
     }
