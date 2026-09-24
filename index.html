@@ -735,23 +735,23 @@
       }
 
       if (type === 'rebreak_a') {
-        const slice32Duration = barDuration / 32;
+        // RE-BREAK A: Loopear exactamente 1 tiempo (barDuration / 4) cuantizado al momento de apretar
+        const beatDuration = barDuration / 4; 
+        
         stutterTimeout = setTimeout(() => {
           if (!isStutterActive) return;
 
           drumLoopGain.gain.cancelScheduledValues(audioCtx.currentTime);
           drumLoopGain.gain.setValueAtTime(0, audioCtx.currentTime);
 
-          const elapsed = audioCtx.currentTime - loopStartTime;
-          const currentPos = elapsed % effectiveDuration;
-          const sliceIndex = Math.floor(currentPos / slice32Duration);
-          const sliceStart = loopPoints.start + (sliceIndex * slice32Duration);
+          const elapsedAtTarget = startTime - loopStartTime;
+          const sliceStart = loopPoints.start + (elapsedAtTarget % effectiveDuration);
 
           currentStutterSource = audioCtx.createBufferSource();
           currentStutterSource.buffer = buffer;
           currentStutterSource.loop = true;
           currentStutterSource.loopStart = sliceStart;
-          currentStutterSource.loopEnd = sliceStart + slice32Duration;
+          currentStutterSource.loopEnd = sliceStart + beatDuration;
 
           const stutterGain = audioCtx.createGain();
           stutterGain.gain.setValueAtTime(1.15, audioCtx.currentTime);
