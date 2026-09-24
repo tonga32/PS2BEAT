@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1">
   <title>PS2 Jungle DrumPad</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Oxanium:wght@600;800&family=Chakra+Petch:wght@500;700&display=swap');
 
     * {
       box-sizing: border-box;
@@ -18,7 +18,11 @@
     body {
       margin: 0;
       padding: 0;
-      background-color: #050814;
+      /* FONDO ESTÉTICA PS2 (Inspirado en la imagen de nebulosa azul y partículas) */
+      background: 
+        radial-gradient(circle at center, rgba(0, 119, 255, 0.25) 0%, rgba(3, 5, 13, 0.95) 70%),
+        linear-gradient(135deg, #02040a 0%, #081229 50%, #02040a 100%);
+      background-color: #02040a;
       color: #00f0ff;
       font-family: 'Chakra Petch', sans-serif;
       height: 100vh;
@@ -36,41 +40,46 @@
       left: 0;
       width: 100vw;
       height: 100vh;
-      background: radial-gradient(circle, #101835 0%, #03050d 100%);
+      background: radial-gradient(circle, rgba(16, 24, 53, 0.9) 0%, rgba(2, 4, 10, 0.98) 100%);
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
       z-index: 100;
-      text-shadow: 0 0 10px #00f0ff;
+      text-shadow: 0 0 15px rgba(0, 240, 255, 0.6);
     }
 
     #startScreen h1 {
-      font-size: 2.2rem;
-      letter-spacing: 3px;
-      margin-bottom: 5px;
+      font-family: 'Oxanium', sans-serif;
+      font-size: 2.4rem;
+      letter-spacing: 4px;
+      margin-bottom: 8px;
       color: #ffffff;
       text-transform: uppercase;
+      text-align: center;
     }
 
     #startScreen p {
-      font-size: 0.9rem;
-      color: #7080b0;
+      font-size: 0.85rem;
+      color: #70a0ff;
       margin-bottom: 30px;
+      letter-spacing: 2px;
     }
 
     .play-btn {
-      background: linear-gradient(135deg, #00f0ff, #7000ff);
+      font-family: 'Oxanium', sans-serif;
+      background: linear-gradient(135deg, #00f0ff, #0044ff);
       border: 2px solid #ffffff;
       border-radius: 50px;
       color: #ffffff;
-      padding: 18px 45px;
-      font-size: 1.5rem;
-      font-weight: bold;
+      padding: 16px 45px;
+      font-size: 1.4rem;
+      font-weight: 800;
       text-transform: uppercase;
-      letter-spacing: 2px;
-      box-shadow: 0 0 20px rgba(0, 240, 255, 0.6);
+      letter-spacing: 3px;
+      box-shadow: 0 0 25px rgba(0, 150, 255, 0.7);
       cursor: pointer;
+      transition: transform 0.1s ease;
     }
 
     .play-btn:active {
@@ -86,8 +95,11 @@
       padding: 12px;
       flex-direction: column;
       justify-content: space-between;
-      background: linear-gradient(180deg, #0c1026 0%, #050714 100%);
-      box-shadow: inset 0 0 15px rgba(0, 240, 255, 0.2);
+      background: rgba(5, 12, 30, 0.65);
+      backdrop-filter: blur(8px);
+      border-left: 1px solid rgba(0, 240, 255, 0.15);
+      border-right: 1px solid rgba(0, 240, 255, 0.15);
+      box-shadow: inset 0 0 20px rgba(0, 100, 255, 0.15);
     }
 
     .header {
@@ -95,16 +107,19 @@
       justify-content: space-between;
       align-items: center;
       padding: 8px 12px;
-      background: rgba(0, 240, 255, 0.05);
-      border: 1px solid rgba(0, 240, 255, 0.3);
+      background: rgba(0, 119, 255, 0.08);
+      border: 1px solid rgba(0, 240, 255, 0.35);
       border-radius: 6px;
+      box-shadow: 0 0 10px rgba(0, 150, 255, 0.1);
     }
 
     .header .logo {
-      font-weight: 700;
-      font-size: 0.9rem;
-      letter-spacing: 1.5px;
+      font-family: 'Oxanium', sans-serif;
+      font-weight: 800;
+      font-size: 1rem;
+      letter-spacing: 2px;
       color: #ffffff;
+      text-shadow: 0 0 8px rgba(0, 240, 255, 0.8);
     }
 
     /* BOTÓN MUTE */
@@ -112,9 +127,9 @@
       background: rgba(255, 0, 85, 0.15);
       border: 1px solid #ff0055;
       color: #ff0055;
-      font-family: 'Chakra Petch', sans-serif;
+      font-family: 'Oxanium', sans-serif;
       font-size: 0.65rem;
-      font-weight: bold;
+      font-weight: 800;
       padding: 4px 10px;
       border-radius: 4px;
       cursor: pointer;
@@ -135,9 +150,10 @@
     }
 
     .header .status {
-      font-size: 0.7rem;
+      font-size: 0.65rem;
       color: #00ff66;
       text-shadow: 0 0 5px #00ff66;
+      letter-spacing: 1px;
     }
 
     /* GRID DE 12 PADS */
@@ -151,53 +167,57 @@
     }
 
     .pad {
-      background: linear-gradient(145deg, #161d3a, #0b0f24);
-      border: 1.5px solid #2a386e;
+      background: linear-gradient(145deg, rgba(22, 35, 75, 0.8), rgba(11, 18, 45, 0.9));
+      border: 1.5px solid rgba(0, 180, 255, 0.3);
       border-radius: 8px;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      color: #a0b0e0;
+      color: #a0c0e0;
       font-size: 0.85rem;
       font-weight: bold;
       position: relative;
       overflow: hidden;
-      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6), inset 0 0 8px rgba(0, 150, 255, 0.05);
     }
 
     .pad.active {
       border-color: #00f0ff;
-      box-shadow: 0 0 15px #00f0ff;
-      background: #1a295c;
+      box-shadow: 0 0 18px rgba(0, 240, 255, 0.7), inset 0 0 10px rgba(0, 240, 255, 0.3);
+      background: linear-gradient(145deg, rgba(30, 60, 120, 0.9), rgba(15, 30, 70, 0.9));
       color: #ffffff;
     }
 
     .pad.glitch-pad {
-      background: linear-gradient(145deg, #3a1628, #240b17);
-      border-color: #ff0055;
+      background: linear-gradient(145deg, rgba(58, 22, 40, 0.8), rgba(36, 11, 23, 0.9));
+      border-color: rgba(255, 0, 85, 0.4);
       color: #ffa0c0;
     }
 
     .pad.glitch-pad.active {
       border-color: #ff0055;
-      box-shadow: 0 0 15px #ff0055;
-      background: #5c1a3a;
+      box-shadow: 0 0 18px rgba(255, 0, 85, 0.7), inset 0 0 10px rgba(255, 0, 85, 0.3);
+      background: linear-gradient(145deg, rgba(120, 20, 60, 0.9), rgba(70, 10, 35, 0.9));
       color: #ffffff;
     }
 
     .pad span {
       pointer-events: none;
       text-transform: uppercase;
+      font-family: 'Oxanium', sans-serif;
+      letter-spacing: 1px;
       font-size: 0.75rem;
     }
 
     .pad .indicator {
       position: absolute;
       bottom: 4px;
-      font-size: 0.55rem;
+      font-size: 0.55srem;
+      font-size: 0.52rem;
       color: #00f0ff;
       opacity: 0.75;
+      letter-spacing: 0.5px;
     }
 
     .pad.glitch-pad .indicator {
@@ -219,7 +239,7 @@
     <div class="header">
       <div class="logo">PS2 // BREAKS</div>
       <button id="muteBtn" class="mute-btn">MUTE</button>
-      <div class="status" id="statusIndicator">● DRUM LOOP ACTIVE</div>
+      <div class="status" id="statusIndicator">● LOOP ACTIVE</div>
     </div>
 
     <div class="pad-grid">
@@ -407,7 +427,6 @@
       drumLoopSource.loopEnd = points.end;
 
       drumLoopGain = audioCtx.createGain();
-      // VOLUMEN DEL LOOP SUBIDO (Pasó de 0.85 a 1.15)
       drumLoopGain.gain.setValueAtTime(1.15, audioCtx.currentTime);
 
       drumLoopSource.connect(drumLoopGain);
@@ -489,14 +508,13 @@
     }
 
     // ---------------------------------------------
-    // GESTIÓN DE PADS (RE-TRIGGER INSTANTÁNEO AL RETOCAR)
+    // GESTIÓN DE PADS
     // ---------------------------------------------
     const activePadNodes = {};
 
     function startPadSound(padId, soundKey) {
       if (!audioBuffers[soundKey]) return;
 
-      // Si ya estaba sonando este mismo pad, lo cortamos inmediatamente antes de iniciar el nuevo golpe
       if (activePadNodes[padId]) {
         executeStop(padId, true);
       }
@@ -674,7 +692,6 @@
       }
 
       if (type === 'rebreak_b') {
-        // RE-BREAK B: Microcortes dinámicos en 1/16, 1/8 y 1/4
         stutterTimeout = setTimeout(() => {
           if (!isStutterActive) return;
 
@@ -684,7 +701,6 @@
           function playDynamicMicroCuts() {
             if (!isStutterActive) return;
 
-            // Divisiones para 1/4 (4), 1/8 (8) y 1/16 (16)
             const divisionsArr = [4, 8, 16];
             const divisions = divisionsArr[Math.floor(Math.random() * divisionsArr.length)];
             const sliceDuration = effectiveDuration / divisions;
@@ -755,7 +771,7 @@
         muteBtn.classList.remove('muted');
         muteBtn.textContent = 'MUTE';
         statusIndicator.style.color = '#00ff66';
-        statusIndicator.textContent = '● DRUM LOOP ACTIVE';
+        statusIndicator.textContent = '● LOOP ACTIVE';
       }
     });
 
@@ -844,6 +860,7 @@
 
       const hasOtherTouchesOnPad = Array.from(activeTouches.values()).some(t => t.padId === padId);
       if (!hasOtherTouchesOnPad) {
+        pad.classList.remove('app');
         pad.classList.remove('active');
         if (soundKey) {
           stopPadSound(padId);
