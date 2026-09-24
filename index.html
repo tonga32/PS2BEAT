@@ -18,10 +18,9 @@
     body {
       margin: 0;
       padding: 0;
-      /* FONDO ESTÉTICA PS2 (Inspirado en la imagen de nebulosa azul y partículas) */
-      background: 
-        radial-gradient(circle at center, rgba(0, 119, 255, 0.25) 0%, rgba(3, 5, 13, 0.95) 70%),
-        linear-gradient(135deg, #02040a 0%, #081229 50%, #02040a 100%);
+      /* FONDO CARGADO DESDE TU IMAGEN DE PS2 */
+      background: url('image_83cb5d.jpg') no-repeat center center fixed;
+      background-size: cover;
       background-color: #02040a;
       color: #00f0ff;
       font-family: 'Chakra Petch', sans-serif;
@@ -40,7 +39,7 @@
       left: 0;
       width: 100vw;
       height: 100vh;
-      background: radial-gradient(circle, rgba(16, 24, 53, 0.9) 0%, rgba(2, 4, 10, 0.98) 100%);
+      background: radial-gradient(circle, rgba(16, 24, 53, 0.85) 0%, rgba(2, 4, 10, 0.95) 100%);
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -95,8 +94,8 @@
       padding: 12px;
       flex-direction: column;
       justify-content: space-between;
-      background: rgba(5, 12, 30, 0.65);
-      backdrop-filter: blur(8px);
+      background: rgba(5, 12, 30, 0.5);
+      backdrop-filter: blur(6px);
       border-left: 1px solid rgba(0, 240, 255, 0.15);
       border-right: 1px solid rgba(0, 240, 255, 0.15);
       box-shadow: inset 0 0 20px rgba(0, 100, 255, 0.15);
@@ -107,10 +106,10 @@
       justify-content: space-between;
       align-items: center;
       padding: 8px 12px;
-      background: rgba(0, 119, 255, 0.08);
+      background: rgba(0, 119, 255, 0.12);
       border: 1px solid rgba(0, 240, 255, 0.35);
       border-radius: 6px;
-      box-shadow: 0 0 10px rgba(0, 150, 255, 0.1);
+      box-shadow: 0 0 10px rgba(0, 150, 255, 0.2);
     }
 
     .header .logo {
@@ -122,7 +121,6 @@
       text-shadow: 0 0 8px rgba(0, 240, 255, 0.8);
     }
 
-    /* BOTÓN MUTE */
     .mute-btn {
       background: rgba(255, 0, 85, 0.15);
       border: 1px solid #ff0055;
@@ -167,8 +165,8 @@
     }
 
     .pad {
-      background: linear-gradient(145deg, rgba(22, 35, 75, 0.8), rgba(11, 18, 45, 0.9));
-      border: 1.5px solid rgba(0, 180, 255, 0.3);
+      background: linear-gradient(145deg, rgba(22, 35, 75, 0.85), rgba(11, 18, 45, 0.95));
+      border: 1.5px solid rgba(0, 180, 255, 0.35);
       border-radius: 8px;
       display: flex;
       flex-direction: column;
@@ -185,20 +183,20 @@
     .pad.active {
       border-color: #00f0ff;
       box-shadow: 0 0 18px rgba(0, 240, 255, 0.7), inset 0 0 10px rgba(0, 240, 255, 0.3);
-      background: linear-gradient(145deg, rgba(30, 60, 120, 0.9), rgba(15, 30, 70, 0.9));
+      background: linear-gradient(145deg, rgba(30, 60, 120, 0.95), rgba(15, 30, 70, 0.95));
       color: #ffffff;
     }
 
     .pad.glitch-pad {
-      background: linear-gradient(145deg, rgba(58, 22, 40, 0.8), rgba(36, 11, 23, 0.9));
-      border-color: rgba(255, 0, 85, 0.4);
+      background: linear-gradient(145deg, rgba(58, 22, 40, 0.85), rgba(36, 11, 23, 0.95));
+      border-color: rgba(255, 0, 85, 0.45);
       color: #ffa0c0;
     }
 
     .pad.glitch-pad.active {
       border-color: #ff0055;
       box-shadow: 0 0 18px rgba(255, 0, 85, 0.7), inset 0 0 10px rgba(255, 0, 85, 0.3);
-      background: linear-gradient(145deg, rgba(120, 20, 60, 0.9), rgba(70, 10, 35, 0.9));
+      background: linear-gradient(145deg, rgba(120, 20, 60, 0.95), rgba(70, 10, 35, 0.95));
       color: #ffffff;
     }
 
@@ -213,7 +211,6 @@
     .pad .indicator {
       position: absolute;
       bottom: 4px;
-      font-size: 0.55srem;
       font-size: 0.52rem;
       color: #00f0ff;
       opacity: 0.75;
@@ -238,25 +235,23 @@
   <div id="app">
     <div class="header">
       <div class="logo">PS2 // BREAKS</div>
-      <button id="muteBtn" class="mute-btn">MUTE</button>
+      <button id="muteBtn" class="mute-btn">LOOP MUTE</button>
       <div class="status" id="statusIndicator">● LOOP ACTIVE</div>
     </div>
 
     <div class="pad-grid">
-      <!-- 9 SAMPLES PRINCIPALES -->
-      <div class="pad" data-sound="sample1"><span>SMP 01</span><div class="indicator">1/16 HOLD</div></div>
+      <div class="pad" data-sound="sample1"><span>SMP 01</span><div class="indicator">1/8 CUT</div></div>
       <div class="pad" data-sound="sample2"><span>SMP 02</span><div class="indicator">1/8 HOLD</div></div>
       <div class="pad" data-sound="sample3"><span>SMP 03</span><div class="indicator">1/8 HOLD</div></div>
-      <div class="pad" data-sound="sample4"><span>SMP 04</span><div class="indicator">1/16 HOLD</div></div>
-      <div class="pad" data-sound="sample5"><span>SMP 05</span><div class="indicator">1/8 HOLD</div></div>
-      <div class="pad" data-sound="sample6"><span>SMP 06</span><div class="indicator">1/8 HOLD</div></div>
+      <div class="pad" data-sound="sample4"><span>SMP 04</span><div class="indicator">1/8 + SUSTAIN</div></div>
+      <div class="pad" data-sound="sample5"><span>SMP 05</span><div class="indicator">1/8 + SUSTAIN</div></div>
+      <div class="pad" data-sound="sample6"><span>SMP 06</span><div class="indicator">1/8 + SUSTAIN</div></div>
       <div class="pad" data-sound="sample7"><span>SMP 07</span><div class="indicator">1/16 HOLD</div></div>
       <div class="pad" data-sound="sample8"><span>SMP 08</span><div class="indicator">1/16 HOLD</div></div>
       <div class="pad" data-sound="sample9"><span>SMP 09</span><div class="indicator">1/16 HOLD</div></div>
 
-      <!-- 3 PADS GROSS BEAT / FX -->
       <div class="pad glitch-pad" data-stutter="rebreak_a"><span>RE-BREAK A</span><div class="indicator">1/32 STUTTER</div></div>
-      <div class="pad glitch-pad" data-stutter="rebreak_b"><span>RE-BREAK B</span><div class="indicator">1/16, 1/8, 1/4</div></div>
+      <div class="pad glitch-pad" data-stutter="rebreak_b"><span>RE-BREAK B</span><div class="indicator">ULTRA MICRO-CUTS</div></div>
       <div class="pad glitch-pad" data-stutter="scratch"><span>SLOW TAPE STOP</span><div class="indicator">VINYL BRAKE</div></div>
     </div>
   </div>
@@ -270,14 +265,24 @@
     let drumLoopGain = null;
     let loopStartTime = 0;
 
-    // AUDIO NODES MASTER & FX
+    // NODOS DE AUDIO MASTER Y FX
     let masterGain = null;
     let masterCompressor = null;
     let masterClipper = null;
     let masterFilter = null;
-    let masterDistortion = null;
+    
+    // EFECTOS MODULACIÓN (Flanger / Phaser)
+    let flangerDelay = null;
+    let flangerFeedback = null;
+    let flangerDepth = null;
+    let flangerLFO = null;
+    let flangerGain = null;
 
-    // MASTER REVERB NODES
+    let phaserFilter = null;
+    let phaserFeedback = null;
+    let phaserLFO = null;
+    let phaserGain = null;
+
     let convolverNode = null;
     let reverbWetGain = null;
 
@@ -346,19 +351,6 @@
       return curve;
     }
 
-    function makeDistortionCurve(amount) {
-      if (amount <= 0) return null;
-      const k = amount;
-      const n_samples = 44100;
-      const curve = new Float32Array(n_samples);
-      const deg = Math.PI / 180;
-      for (let i = 0; i < n_samples; ++i) {
-        const x = (i * 2) / n_samples - 1;
-        curve[i] = ((3 + k) * x * 20 * deg) / (Math.PI + k * Math.abs(x));
-      }
-      return curve;
-    }
-
     async function loadAudio(key, url) {
       try {
         const response = await fetch(url);
@@ -377,14 +369,52 @@
       masterFilter.frequency.setValueAtTime(20000, audioCtx.currentTime);
       masterFilter.Q.setValueAtTime(1, audioCtx.currentTime);
 
-      masterDistortion = audioCtx.createWaveShaper();
+      // --- FLANGER (Lado Izquierdo) ---
+      flangerDelay = audioCtx.createDelay();
+      flangerDelay.delayTime.setValueAtTime(0.005, audioCtx.currentTime);
+      flangerFeedback = audioCtx.createGain();
+      flangerFeedback.gain.setValueAtTime(0.5, audioCtx.currentTime);
+      flangerDepth = audioCtx.createGain();
+      flangerDepth.gain.setValueAtTime(0.002, audioCtx.currentTime);
 
+      flangerLFO = audioCtx.createOscillator();
+      flangerLFO.frequency.setValueAtTime(0.3, audioCtx.currentTime);
+      flangerLFO.connect(flangerDepth);
+      flangerDepth.connect(flangerDelay.delayTime);
+      flangerDelay.connect(flangerFeedback);
+      flangerFeedback.connect(flangerDelay);
+      flangerLFO.start();
+
+      flangerGain = audioCtx.createGain();
+      flangerGain.gain.setValueAtTime(0, audioCtx.currentTime);
+
+      // --- PHASER (Lado Derecho) ---
+      phaserFilter = audioCtx.createBiquadFilter();
+      phaserFilter.type = 'allpass';
+      phaserFilter.frequency.setValueAtTime(1000, audioCtx.currentTime);
+      phaserFilter.Q.setValueAtTime(3, audioCtx.currentTime);
+
+      phaserFeedback = audioCtx.createGain();
+      phaserFeedback.gain.setValueAtTime(0.6, audioCtx.currentTime);
+      phaserFilter.connect(phaserFeedback);
+      phaserFeedback.connect(phaserFilter);
+
+      phaserLFO = audioCtx.createOscillator();
+      phaserLFO.frequency.setValueAtTime(0.5, audioCtx.currentTime);
+      const phaserLfoGain = audioCtx.createGain();
+      phaserLfoGain.gain.setValueAtTime(800, audioCtx.currentTime);
+      phaserLFO.connect(phaserLfoGain);
+      phaserLfoGain.connect(phaserFilter.frequency);
+      phaserLFO.start();
+
+      phaserGain = audioCtx.createGain();
+      phaserGain.gain.setValueAtTime(0, audioCtx.currentTime);
+
+      // --- REVERB ---
       convolverNode = audioCtx.createConvolver();
       convolverNode.buffer = createReverbImpulse(audioCtx);
-
       reverbWetGain = audioCtx.createGain();
       reverbWetGain.gain.setValueAtTime(0, audioCtx.currentTime);
-
       convolverNode.connect(reverbWetGain);
 
       masterClipper = audioCtx.createWaveShaper();
@@ -400,10 +430,20 @@
       masterGain = audioCtx.createGain();
       masterGain.gain.setValueAtTime(0.8, audioCtx.currentTime);
 
-      masterFilter.connect(masterDistortion);
-      masterDistortion.connect(masterClipper);
-      masterDistortion.connect(convolverNode);
+      // Enrutamiento de efectos X/Y
+      masterFilter.connect(flangerDelay);
+      flangerDelay.connect(flangerGain);
+      flangerGain.connect(masterClipper);
+
+      masterFilter.connect(phaserFilter);
+      phaserFilter.connect(phaserGain);
+      phaserGain.connect(masterClipper);
+
+      masterFilter.connect(convolverNode);
       reverbWetGain.connect(masterClipper);
+
+      masterFilter.connect(masterClipper);
+
       masterClipper.connect(masterCompressor);
       masterCompressor.connect(masterGain);
       masterGain.connect(audioCtx.destination);
@@ -458,8 +498,9 @@
     }
 
     function updateMasterXY(xPercent, yPercent) {
-      if (!masterFilter || !masterDistortion || !reverbWetGain) return;
+      if (!masterFilter || !flangerGain || !phaserGain) return;
 
+      // Control Eje Y: Filtro paso alto / paso bajo
       if (yPercent < 0.45) {
         masterFilter.type = 'highpass';
         const factor = (0.45 - yPercent) / 0.45;
@@ -478,18 +519,18 @@
         masterFilter.Q.setTargetAtTime(1, audioCtx.currentTime, 0.015);
       }
 
+      // Control Eje X: Izquierda = Flanger | Derecha = Phaser
       if (xPercent < 0.45) {
-        const reverbAmount = (0.45 - xPercent) / 0.45;
-        reverbWetGain.gain.setTargetAtTime(reverbAmount * 0.85, audioCtx.currentTime, 0.015);
-        masterDistortion.curve = null;
+        const flangerAmount = (0.45 - xPercent) / 0.45;
+        flangerGain.gain.setTargetAtTime(flangerAmount * 0.9, audioCtx.currentTime, 0.015);
+        phaserGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.015);
       } else if (xPercent > 0.55) {
-        const distFactor = (xPercent - 0.55) / 0.45;
-        const distAmount = Math.pow(distFactor, 2) * 60;
-        masterDistortion.curve = makeDistortionCurve(distAmount);
-        reverbWetGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.015);
+        const phaserAmount = (xPercent - 0.55) / 0.45;
+        phaserGain.gain.setTargetAtTime(phaserAmount * 0.9, audioCtx.currentTime, 0.015);
+        flangerGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.015);
       } else {
-        reverbWetGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.015);
-        masterDistortion.curve = null;
+        flangerGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.015);
+        phaserGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.015);
       }
     }
 
@@ -499,12 +540,8 @@
         masterFilter.frequency.setTargetAtTime(20000, audioCtx.currentTime, 0.08);
         masterFilter.Q.setTargetAtTime(1, audioCtx.currentTime, 0.08);
       }
-      if (masterDistortion) {
-        masterDistortion.curve = null;
-      }
-      if (reverbWetGain) {
-        reverbWetGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.08);
-      }
+      if (flangerGain) flangerGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.08);
+      if (phaserGain) phaserGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.08);
     }
 
     // ---------------------------------------------
@@ -525,7 +562,9 @@
       const padGain = audioCtx.createGain();
       padGain.gain.setValueAtTime(0.8, audioCtx.currentTime);
 
-      const isEighthSound = ['sample2', 'sample3', 'sample5', 'sample6'].includes(soundKey);
+      // Definir propiedades de corte y sustain según sample solicitado
+      const isEighthSound = ['sample1', 'sample2', 'sample3', 'sample4', 'sample5', 'sample6'].includes(soundKey);
+      const hasLongSustain = ['sample4', 'sample5', 'sample6'].includes(soundKey);
 
       source.loop = true;
 
@@ -536,13 +575,9 @@
         bassFilter.gain.setValueAtTime(12, audioCtx.currentTime);
         bassFilter.Q.setValueAtTime(1.5, audioCtx.currentTime);
 
-        const bassDist = audioCtx.createWaveShaper();
-        bassDist.curve = makeDistortionCurve(35);
-
         source.connect(padGain);
         padGain.connect(bassFilter);
-        bassFilter.connect(bassDist);
-        bassDist.connect(masterFilter);
+        bassFilter.connect(masterFilter);
       } else {
         source.connect(padGain);
         padGain.connect(masterFilter);
@@ -555,6 +590,7 @@
         padGain, 
         isHeld: false, 
         isEighth: isEighthSound,
+        hasSustain: hasLongSustain,
         startTime: audioCtx.currentTime 
       };
     }
@@ -562,7 +598,7 @@
     function stopPadSound(padId) {
       if (!activePadNodes[padId]) return;
       const nodeData = activePadNodes[padId];
-      const { isHeld, isEighth } = nodeData;
+      const { isHeld, isEighth, hasSustain } = nodeData;
 
       if (isHeld) {
         executeStop(padId, false);
@@ -577,32 +613,27 @@
 
         setTimeout(() => {
           if (activePadNodes[padId] && !activePadNodes[padId].isHeld) {
-            executeStop(padId, false);
+            executeStop(padId, hasSustain); // Si tiene sustain largo, aplicamos desvanecimiento de 2s
           }
         }, remainingTime * 1000);
       }
     }
 
-    function executeStop(padId, immediate = false) {
+    function executeStop(padId, longSustain = false) {
       if (!activePadNodes[padId]) return;
       const { source, padGain } = activePadNodes[padId];
       delete activePadNodes[padId];
 
       const now = audioCtx.currentTime;
-      if (immediate) {
-        try {
-          source.stop();
-          source.disconnect();
-        } catch (e) {}
-      } else {
-        try {
-          padGain.gain.cancelScheduledValues(now);
-          padGain.gain.setValueAtTime(Math.max(0.0001, padGain.gain.value), now);
-          padGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.03);
-          source.stop(now + 0.035);
-        } catch (e) {
-          try { source.stop(); } catch(err) {}
-        }
+      const fadeTime = longSustain ? 2.0 : 0.03; // Sustain de 2 segundos para sample 4, 5 y 6
+
+      try {
+        padGain.gain.cancelScheduledValues(now);
+        padGain.gain.setValueAtTime(Math.max(0.0001, padGain.gain.value), now);
+        padGain.gain.exponentialRampToValueAtTime(0.0001, now + fadeTime);
+        source.stop(now + fadeTime + 0.05);
+      } catch (e) {
+        try { source.stop(); } catch(err) {}
       }
     }
 
@@ -652,16 +683,14 @@
           stutterGain.connect(masterFilter);
 
           currentStutterSource.start(0, currentPos);
-
           currentStutterSource.playbackRate.setValueAtTime(1.0, audioCtx.currentTime);
           currentStutterSource.playbackRate.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1.1);
         }, initialDelay);
         return;
       }
 
-      const slice32Duration = effectiveDuration / 32;
-
       if (type === 'rebreak_a') {
+        const slice32Duration = effectiveDuration / 32;
         stutterTimeout = setTimeout(() => {
           if (!isStutterActive) return;
 
@@ -670,7 +699,6 @@
 
           const elapsed = audioCtx.currentTime - loopStartTime;
           const currentPos = elapsed % effectiveDuration;
-          
           const sliceIndex = Math.floor(currentPos / slice32Duration);
           const sliceStart = loopPoints.start + (sliceIndex * slice32Duration);
 
@@ -692,16 +720,17 @@
       }
 
       if (type === 'rebreak_b') {
+        // MÁS MICROORTES Y DINÁMICA DE ALTA FRECUENCIA
         stutterTimeout = setTimeout(() => {
           if (!isStutterActive) return;
 
           drumLoopGain.gain.cancelScheduledValues(audioCtx.currentTime);
           drumLoopGain.gain.setValueAtTime(0, audioCtx.currentTime);
 
-          function playDynamicMicroCuts() {
+          function playUltraMicroCuts() {
             if (!isStutterActive) return;
 
-            const divisionsArr = [4, 8, 16];
+            const divisionsArr = [16, 32, 64];
             const divisions = divisionsArr[Math.floor(Math.random() * divisionsArr.length)];
             const sliceDuration = effectiveDuration / divisions;
 
@@ -717,14 +746,13 @@
             sliceSource.connect(sliceGain);
             sliceGain.connect(masterFilter);
 
-            sliceSource.start(audioCtx.currentTime, sliceStart, sliceDuration * 1.05);
-
+            sliceSource.start(audioCtx.currentTime, sliceStart, sliceDuration * 1.02);
             currentStutterSource = sliceSource;
 
-            stutterTimeout = setTimeout(playDynamicMicroCuts, sliceDuration * 1000);
+            stutterTimeout = setTimeout(playUltraMicroCuts, sliceDuration * 1000);
           }
 
-          playDynamicMicroCuts();
+          playUltraMicroCuts();
         }, initialDelay);
       }
     }
@@ -744,32 +772,32 @@
         currentStutterSource = null;
       }
 
-      if (drumLoopGain && audioCtx) {
+      if (drumLoopGain && audioCtx && !isMuted) {
         drumLoopGain.gain.cancelScheduledValues(audioCtx.currentTime);
         drumLoopGain.gain.setValueAtTime(1.15, audioCtx.currentTime);
       }
     }
 
-    // MUTE
+    // MUTE SOLO DEL LOOP DE BATERÍA
     const muteBtn = document.getElementById('muteBtn');
     const statusIndicator = document.getElementById('statusIndicator');
 
     muteBtn.addEventListener('click', () => {
-      if (!audioCtx || !masterGain) return;
+      if (!audioCtx || !drumLoopGain) return;
       isMuted = !isMuted;
 
       if (isMuted) {
-        masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
-        masterGain.gain.setValueAtTime(0, audioCtx.currentTime);
+        drumLoopGain.gain.cancelScheduledValues(audioCtx.currentTime);
+        drumLoopGain.gain.setValueAtTime(0, audioCtx.currentTime);
         muteBtn.classList.add('muted');
-        muteBtn.textContent = 'MUTED';
+        muteBtn.textContent = 'UNMUTE LOOP';
         statusIndicator.style.color = '#ff0055';
-        statusIndicator.textContent = 'x MUTED';
+        statusIndicator.textContent = 'x LOOP MUTED';
       } else {
-        masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
-        masterGain.gain.setValueAtTime(0.8, audioCtx.currentTime);
+        drumLoopGain.gain.cancelScheduledValues(audioCtx.currentTime);
+        drumLoopGain.gain.setValueAtTime(1.15, audioCtx.currentTime);
         muteBtn.classList.remove('muted');
-        muteBtn.textContent = 'MUTE';
+        muteBtn.textContent = 'LOOP MUTE';
         statusIndicator.style.color = '#00ff66';
         statusIndicator.textContent = '● LOOP ACTIVE';
       }
@@ -860,7 +888,6 @@
 
       const hasOtherTouchesOnPad = Array.from(activeTouches.values()).some(t => t.padId === padId);
       if (!hasOtherTouchesOnPad) {
-        pad.classList.remove('app');
         pad.classList.remove('active');
         if (soundKey) {
           stopPadSound(padId);
