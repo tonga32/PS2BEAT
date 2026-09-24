@@ -18,10 +18,15 @@
     body {
       margin: 0;
       padding: 0;
-      /* FONDO GENERAL DE LA APLICACIÓN */
-      background: url('image_83cb5d.jpg') no-repeat center center fixed;
-      background-size: cover;
+      /* FONDO GENERADO CON CSS (Cuadrícula Cyberpunk + Resplandor) */
       background-color: #02040a;
+      background-image: 
+        linear-gradient(rgba(0, 240, 255, 0.07) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 240, 255, 0.07) 1px, transparent 1px),
+        radial-gradient(circle at center, #0a1435 0%, #02040a 100%);
+      background-size: 40px 40px, 40px 40px, 100% 100%;
+      background-position: center center;
+      
       color: #00f0ff;
       font-family: 'Chakra Petch', sans-serif;
       height: 100vh;
@@ -32,15 +37,36 @@
       overflow: hidden;
     }
 
-    /* PANTALLA DE INICIO CON LA IMAGEN */
+    /* EFECTO SCANLINES (Rayas de monitor CRT viejo) */
+    body::after {
+      content: "";
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0.15),
+        rgba(0, 0, 0, 0.15) 1px,
+        transparent 1px,
+        transparent 2px
+      );
+      pointer-events: none; /* Para que no interfiera con los toques */
+      z-index: 999;
+    }
+
     #startScreen {
       position: fixed;
       top: 0;
       left: 0;
       width: 100vw;
       height: 100vh;
-      background: url('image_84a464.png') no-repeat center center fixed;
-      background-size: cover;
+      /* FONDO DE INICIO GENERADO CON CSS (Túnel Digital Retro) */
+      background-color: #02040a;
+      background-image: 
+        radial-gradient(circle at 50% 50%, rgba(0, 68, 255, 0.25) 0%, rgba(2, 4, 10, 1) 80%),
+        repeating-radial-gradient(circle at 50% 50%, rgba(0, 240, 255, 0.05) 0, rgba(0, 240, 255, 0.05) 2px, transparent 3px, transparent 25px);
       display: flex;
       flex-direction: column;
       justify-content: space-between;
@@ -58,7 +84,7 @@
       flex-direction: column;
       align-items: center;
       border: 1px solid rgba(0, 240, 255, 0.3);
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.8), inset 0 0 15px rgba(0, 100, 255, 0.2);
       text-shadow: 0 0 15px rgba(0, 240, 255, 0.6);
     }
 
@@ -93,13 +119,14 @@
       box-shadow: 0 0 25px rgba(0, 150, 255, 0.7);
       cursor: pointer;
       transition: transform 0.1s ease;
+      position: relative;
+      z-index: 10;
     }
 
     .play-btn:active {
       transform: scale(0.95);
     }
 
-    /* CONTENEDOR PRINCIPAL PS2 */
     #app {
       display: none;
       width: 100%;
@@ -108,8 +135,8 @@
       padding: 10px 12px;
       flex-direction: column;
       justify-content: space-between;
-      background: rgba(5, 12, 30, 0.5);
-      backdrop-filter: blur(6px);
+      background: rgba(5, 12, 30, 0.4);
+      backdrop-filter: blur(8px);
       border-left: 1px solid rgba(0, 240, 255, 0.15);
       border-right: 1px solid rgba(0, 240, 255, 0.15);
       box-shadow: inset 0 0 20px rgba(0, 100, 255, 0.15);
@@ -149,6 +176,8 @@
       letter-spacing: 1px;
       box-shadow: 0 0 6px rgba(255, 0, 85, 0.3);
       transition: all 0.15s ease;
+      position: relative;
+      z-index: 10;
     }
 
     .mute-btn:active {
@@ -168,7 +197,6 @@
       letter-spacing: 1px;
     }
 
-    /* GRID DE 15 PADS (3 columnas x 5 filas) */
     .pad-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -177,6 +205,8 @@
       flex-grow: 1;
       margin-top: 8px;
       margin-bottom: 4px;
+      position: relative;
+      z-index: 10;
     }
 
     .pad {
@@ -220,26 +250,12 @@
       text-transform: uppercase;
       font-family: 'Oxanium', sans-serif;
       letter-spacing: 1px;
-      font-size: 0.68rem;
-    }
-
-    .pad .indicator {
-      position: absolute;
-      bottom: 3px;
-      font-size: 0.48rem;
-      color: #00f0ff;
-      opacity: 0.75;
-      letter-spacing: 0.5px;
-    }
-
-    .pad.glitch-pad .indicator {
-      color: #ff0055;
+      font-size: 0.75rem;
     }
   </style>
 </head>
 <body>
 
-  <!-- PANTALLA DE INICIO CON LA IMAGEN -->
   <div id="startScreen">
     <div></div>
     <div class="start-content">
@@ -250,7 +266,6 @@
     <div></div>
   </div>
 
-  <!-- INTERFAZ PRINCIPAL -->
   <div id="app">
     <div class="header">
       <div class="logo">PS2 // BREAKS</div>
@@ -259,24 +274,24 @@
     </div>
 
     <div class="pad-grid">
-      <!-- Pads de Muestras (1 al 12) -->
-      <div class="pad" data-sound="sample1"><span>SMP 01</span><div class="indicator">1/8 CUT</div></div>
-      <div class="pad" data-sound="sample2"><span>SMP 02</span><div class="indicator">1/8 HOLD</div></div>
-      <div class="pad" data-sound="sample3"><span>SMP 03</span><div class="indicator">1/8 HOLD</div></div>
-      <div class="pad" data-sound="sample4"><span>SMP 04</span><div class="indicator">1/8 + SUSTAIN</div></div>
-      <div class="pad" data-sound="sample5"><span>SMP 05</span><div class="indicator">1/8 + SUSTAIN</div></div>
-      <div class="pad" data-sound="sample6"><span>SMP 06</span><div class="indicator">1/8 + SUSTAIN</div></div>
-      <div class="pad" data-sound="sample7"><span>SMP 07</span><div class="indicator">1/4 CUT</div></div>
-      <div class="pad" data-sound="sample8"><span>SMP 08</span><div class="indicator">1/16 HOLD</div></div>
-      <div class="pad" data-sound="sample9"><span>SMP 09</span><div class="indicator">1/4 CUT</div></div>
-      <div class="pad" data-sound="sample10"><span>SMP 10</span><div class="indicator">1/16 CUT</div></div>
-      <div class="pad" data-sound="sample11"><span>SMP 11</span><div class="indicator">1/8 HOLD</div></div>
-      <div class="pad" data-sound="sample12"><span>SMP 12</span><div class="indicator">1/4 SUSTAIN</div></div>
+      <!-- Pads con nombres personalizados (1 al 12) -->
+      <div class="pad" data-sound="sample1"><span>Bass</span></div>
+      <div class="pad" data-sound="sample2"><span>FX</span></div>
+      <div class="pad" data-sound="sample3"><span>Scratch</span></div>
+      <div class="pad" data-sound="sample4"><span>Pad</span></div>
+      <div class="pad" data-sound="sample5"><span>Pad</span></div>
+      <div class="pad" data-sound="sample6"><span>Pad</span></div>
+      <div class="pad" data-sound="sample7"><span>Pad atmospheric</span></div>
+      <div class="pad" data-sound="sample8"><span>Vox</span></div>
+      <div class="pad" data-sound="sample9"><span>Pluck</span></div>
+      <div class="pad" data-sound="sample10"><span>Chord</span></div>
+      <div class="pad" data-sound="sample11"><span>Chord</span></div>
+      <div class="pad" data-sound="sample12"><span>Chord</span></div>
 
-      <!-- Pads de Efectos / Glitch (3 en la última fila) -->
-      <div class="pad glitch-pad" data-stutter="rebreak_a"><span>RE-BREAK A</span><div class="indicator">1/32 STUTTER</div></div>
-      <div class="pad glitch-pad" data-stutter="rebreak_b"><span>RE-BREAK B</span><div class="indicator">3rd 1/16 STUTTER</div></div>
-      <div class="pad glitch-pad" data-stutter="scratch"><span>SLOW TAPE STOP</span><div class="indicator">VINYL BRAKE</div></div>
+      <!-- Pads de Efectos / Glitch (Última fila) -->
+      <div class="pad glitch-pad" data-stutter="rebreak_a"><span>RE-BREAK A</span></div>
+      <div class="pad glitch-pad" data-stutter="rebreak_b"><span>RE-BREAK B</span></div>
+      <div class="pad glitch-pad" data-stutter="scratch"><span>SLOW TAPE STOP</span></div>
     </div>
   </div>
 
@@ -289,13 +304,11 @@
     let drumLoopGain = null;
     let loopStartTime = 0;
 
-    // NODOS DE AUDIO MASTER Y FX
     let masterGain = null;
     let masterCompressor = null;
     let masterClipper = null;
     let masterFilter = null;
     
-    // EFECTOS MODULACIÓN (Flanger / Phaser)
     let flangerDelay = null;
     let flangerFeedback = null;
     let flangerDepth = null;
@@ -312,7 +325,6 @@
 
     let isMuted = false;
 
-    // Añadidas las rutas para los nuevos samples (10, 11 y 12)
     const soundFiles = {
       loop: './sonidos/ps2-drumbeat.mp3',
       sample1: './sonidos/sample1.mp3',
@@ -397,7 +409,6 @@
       masterFilter.frequency.setValueAtTime(20000, audioCtx.currentTime);
       masterFilter.Q.setValueAtTime(1, audioCtx.currentTime);
 
-      // --- FLANGER (Lado Izquierdo) ---
       flangerDelay = audioCtx.createDelay();
       flangerDelay.delayTime.setValueAtTime(0.005, audioCtx.currentTime);
       flangerFeedback = audioCtx.createGain();
@@ -416,7 +427,6 @@
       flangerGain = audioCtx.createGain();
       flangerGain.gain.setValueAtTime(0, audioCtx.currentTime);
 
-      // --- PHASER (Lado Derecho) ---
       phaserFilter = audioCtx.createBiquadFilter();
       phaserFilter.type = 'allpass';
       phaserFilter.frequency.setValueAtTime(1000, audioCtx.currentTime);
@@ -438,7 +448,6 @@
       phaserGain = audioCtx.createGain();
       phaserGain.gain.setValueAtTime(0, audioCtx.currentTime);
 
-      // --- REVERB ---
       convolverNode = audioCtx.createConvolver();
       convolverNode.buffer = createReverbImpulse(audioCtx);
       reverbWetGain = audioCtx.createGain();
@@ -458,7 +467,6 @@
       masterGain = audioCtx.createGain();
       masterGain.gain.setValueAtTime(0.8, audioCtx.currentTime);
 
-      // Enrutamiento de efectos X/Y
       masterFilter.connect(flangerDelay);
       flangerDelay.connect(flangerGain);
       flangerGain.connect(masterClipper);
@@ -570,9 +578,6 @@
       if (phaserGain) phaserGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.08);
     }
 
-    // ---------------------------------------------
-    // GESTIÓN DE PADS
-    // ---------------------------------------------
     const activePadNodes = {};
 
     function startPadSound(padId, soundKey) {
@@ -678,9 +683,6 @@
       }
     }
 
-    // ---------------------------------------------
-    // RE-BREAKS Y EFECTOS
-    // ---------------------------------------------
     let isStutterActive = false;
     let currentStutterSource = null;
     let stutterTimeout = null;
@@ -756,6 +758,7 @@
 
       if (type === 'rebreak_b') {
         const slice16Duration = effectiveDuration / 16;
+        const slice32Duration = effectiveDuration / 32;
         const targetSliceStart = loopPoints.start + (2 * slice16Duration);
 
         stutterTimeout = setTimeout(() => {
@@ -768,7 +771,7 @@
           currentStutterSource.buffer = buffer;
           currentStutterSource.loop = true;
           currentStutterSource.loopStart = targetSliceStart;
-          currentStutterSource.loopEnd = targetSliceStart + slice16Duration;
+          currentStutterSource.loopEnd = targetSliceStart + slice32Duration;
 
           const stutterGain = audioCtx.createGain();
           stutterGain.gain.setValueAtTime(1.15, audioCtx.currentTime);
@@ -802,7 +805,6 @@
       }
     }
 
-    // MUTE SOLO DEL LOOP DE BATERÍA
     const muteBtn = document.getElementById('muteBtn');
     const statusIndicator = document.getElementById('statusIndicator');
 
@@ -837,9 +839,6 @@
       await initSystem();
     });
 
-    // ---------------------------------------------
-    // GESTIÓN MULTI-TOUCH
-    // ---------------------------------------------
     const activeTouches = new Map();
 
     document.querySelectorAll('.pad').forEach((pad, index) => {
@@ -890,10 +889,10 @@
         }
       }
 
-      if (touch.isDragging) {
+      const activeDraggingTouch = Array.from(activeTouches.values()).find(t => t.isDragging);
+      if (activeDraggingTouch) {
         const xPercent = Math.max(0, Math.min(e.clientX / window.innerWidth, 1));
         const yPercent = Math.max(0, Math.min(e.clientY / window.innerHeight, 1));
-
         updateMasterXY(xPercent, yPercent);
       }
     });
