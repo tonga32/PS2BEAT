@@ -18,7 +18,7 @@
     body {
       margin: 0;
       padding: 0;
-      /* FONDO CARGADO DESDE TU IMAGEN DE PS2 */
+      /* FONDO GENERAL DE LA APLICACIÓN */
       background: url('image_83cb5d.jpg') no-repeat center center fixed;
       background-size: cover;
       background-color: #02040a;
@@ -32,36 +32,50 @@
       overflow: hidden;
     }
 
-    /* PANTALLA DE INICIO */
+    /* PANTALLA DE INICIO CON LA NUEVA IMAGEN */
     #startScreen {
       position: fixed;
       top: 0;
       left: 0;
       width: 100vw;
       height: 100vh;
-      background: radial-gradient(circle, rgba(16, 24, 53, 0.85) 0%, rgba(2, 4, 10, 0.95) 100%);
+      background: url('image_84a464.png') no-repeat center center fixed;
+      background-size: cover;
       display: flex;
       flex-direction: column;
-      justify-content: center;
+      justify-content: space-between;
       align-items: center;
+      padding: 40px 20px;
       z-index: 100;
+    }
+
+    .start-content {
+      background: rgba(2, 4, 10, 0.75);
+      padding: 20px;
+      border-radius: 12px;
+      backdrop-filter: blur(4px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
       text-shadow: 0 0 15px rgba(0, 240, 255, 0.6);
     }
 
     #startScreen h1 {
       font-family: 'Oxanium', sans-serif;
-      font-size: 2.4rem;
+      font-size: 2rem;
       letter-spacing: 4px;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
       color: #ffffff;
       text-transform: uppercase;
       text-align: center;
     }
 
     #startScreen p {
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       color: #70a0ff;
-      margin-bottom: 30px;
+      margin-bottom: 20px;
       letter-spacing: 2px;
     }
 
@@ -71,8 +85,8 @@
       border: 2px solid #ffffff;
       border-radius: 50px;
       color: #ffffff;
-      padding: 16px 45px;
-      font-size: 1.4rem;
+      padding: 14px 40px;
+      font-size: 1.2rem;
       font-weight: 800;
       text-transform: uppercase;
       letter-spacing: 3px;
@@ -224,11 +238,15 @@
 </head>
 <body>
 
-  <!-- PANTALLA DE INICIO -->
+  <!-- PANTALLA DE INICIO CON LA IMAGEN SOLICITADA -->
   <div id="startScreen">
-    <h1>PS2 JUNGLE PAD</h1>
-    <p>TAP TO START SOUND SYSTEM</p>
-    <button class="play-btn" id="playBtn">PLAY</button>
+    <div></div>
+    <div class="start-content">
+      <h1>PS2 JUNGLE PAD</h1>
+      <p>TAP TO START SOUND SYSTEM</p>
+      <button class="play-btn" id="playBtn">PLAY</button>
+    </div>
+    <div></div>
   </div>
 
   <!-- INTERFAZ PRINCIPAL -->
@@ -560,7 +578,6 @@
       const padGain = audioCtx.createGain();
       padGain.gain.setValueAtTime(0.8, audioCtx.currentTime);
 
-      // Configuración de cortes y sustain
       const isEighthSound = ['sample1', 'sample2', 'sample3', 'sample4', 'sample5', 'sample6'].includes(soundKey);
       const isQuarterSound = ['sample7', 'sample9'].includes(soundKey);
       const hasLongSustain = ['sample4', 'sample5', 'sample6'].includes(soundKey);
@@ -609,7 +626,7 @@
         
         let targetDuration;
         if (isQuarter) {
-          targetDuration = effectiveDuration / 4; // 1/4 de tiempo para sample 7 y 9
+          targetDuration = effectiveDuration / 4;
         } else if (isEighth) {
           targetDuration = effectiveDuration / 8;
         } else {
