@@ -276,7 +276,6 @@
     </div>
 
     <div class="pad-grid">
-      <!-- Pads con nombres personalizados -->
       <div class="pad" data-sound="sample1"><span>Bass</span></div>
       <div class="pad" data-sound="sample2"><span>FX</span></div>
       <div class="pad" data-sound="sample3"><span>Scratch</span></div>
@@ -326,6 +325,9 @@
     let reverbWetGain = null;
 
     let isMuted = false;
+
+    // AHORA EL CÓDIGO SABE QUE TU LOOP TIENE 8 BARRAS (COMPASES)
+    const TOTAL_BARS = 8;
 
     const soundFiles = {
       loop: './sonidos/ps2-drumbeat.mp3',
@@ -514,13 +516,17 @@
       drumLoopSource.start(0, points.start);
     }
 
-    function getNextQuantizedTime(gridFraction = 16) {
+    // Calcula el tiempo quantizado asumiendo que divisionsPerBar = 16 (semicorcheas)
+    function getNextQuantizedTime(divisionsPerBar = 16) {
       if (!audioBuffers['loop']) return audioCtx.currentTime;
 
       const loopBuf = audioBuffers['loop'];
       const points = getUnpaddedLoopPoints(loopBuf);
       const effectiveDuration = points.end - points.start;
-      const stepDuration = effectiveDuration / gridFraction;
+      
+      // Ajuste para 8 barras: la duración de UNA barra
+      const barDuration = effectiveDuration / TOTAL_BARS; 
+      const stepDuration = barDuration / divisionsPerBar;
 
       const elapsed = audioCtx.currentTime - loopStartTime;
       const currentStep = elapsed / stepDuration;
@@ -640,14 +646,15 @@
         const loopBuf = audioBuffers['loop'];
         const points = getUnpaddedLoopPoints(loopBuf);
         const effectiveDuration = points.end - points.start;
+        const barDuration = effectiveDuration / TOTAL_BARS; // Ajustado a 8 barras
         
         let targetDuration;
         if (isQuarter) {
-          targetDuration = effectiveDuration / 4;
+          targetDuration = barDuration / 4;
         } else if (isEighth) {
-          targetDuration = effectiveDuration / 8;
+          targetDuration = barDuration / 8;
         } else {
-          targetDuration = effectiveDuration / 16;
+          targetDuration = barDuration / 16;
         }
 
         const elapsed = audioCtx.currentTime - nodeData.startTime;
@@ -698,6 +705,9 @@
       const buffer = audioBuffers['loop'];
       const loopPoints = getUnpaddedLoopPoints(buffer);
       const effectiveDuration = loopPoints.end - loopPoints.start;
+      
+      // Extraemos la duración de UNA barra a partir del total de 8
+      const barDuration = effectiveDuration / TOTAL_BARS;
 
       const startTime = getNextQuantizedTime(16);
       const initialDelay = Math.max(0, (startTime - audioCtx.currentTime) * 1000);
@@ -710,7 +720,7 @@
           drumLoopGain.gain.setValueAtTime(0, audioCtx.currentTime);
 
           const elapsed = audioCtx.currentTime - loopStartTime;
-          const currentPos = loopPoints.start + (elapsed % effectiveDuration);
+          const currentPos = loopPoints.start + (elapsed % effectiveDuration); // Se repite por toda la duración
 
           currentStutterSource = audioCtx.createBufferSource();
           currentStutterSource.buffer = buffer;
@@ -729,7 +739,7 @@
       }
 
       if (type === 'rebreak_a') {
-        const slice32Duration = effectiveDuration / 32;
+        const slice32Duration = barDuration / 32;
         stutterTimeout = setTimeout(() => {
           if (!isStutterActive) return;
 
@@ -759,11 +769,11 @@
       }
 
       if (type === 'rebreak_b') {
-        const slice16Duration = effectiveDuration / 16;
-        const slice32Duration = effectiveDuration / 32;
+        const slice16Duration = barDuration / 16;
+        const slice32Duration = barDuration / 32;
         
-        // Ahora inicia el re-break desde la marca de 3/16 del loop 
-        const targetSliceStart = loopPoints.start + (3 * slice16Duration);
+        // Ahora sí: el quinto paso (índice 4) del primer compás, independientemente de que haya 8.
+        const targetSliceStart = loopPoints.start + (4 * slice16Duration);
 
         stutterTimeout = setTimeout(() => {
           if (!isStutterActive) return;
